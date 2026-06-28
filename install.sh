@@ -38,5 +38,12 @@ done
 # 4) Plugins + fork build.
 bash "$DOT_ROOT/bootstrap/plugins.sh" || warn "plugin setup had issues"
 
+# 5) System-level tweaks (network/keyring/etc). Idempotent. Skipped with --no-system.
+if [ "${1:-}" != "--no-system" ]; then
+    info "Applying system tweaks (network/keyring) — re-run safe; skip with --no-system"
+    bash "$DOT_ROOT/system/system-setup.sh" || warn "system setup had issues (see ARCH-INSTALL.md)"
+fi
+
 ok "Install complete. Log into Hyprland (or reload) to apply."
+info "PAM keyring auto-unlock is a manual step — see ARCH-INSTALL.md §3"
 info "Reflect future edits to GitHub with:  $DOT_ROOT/sync.sh"

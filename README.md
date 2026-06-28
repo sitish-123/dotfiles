@@ -20,9 +20,17 @@ config/               # symlinked into ~/.config/
   quickshell/         #   the bar/launcher/overview (our owned ii)
   matugen/            #   Material You color generation
   illogical-impulse/  #   ii settings/actions
+system/               # system-level (/etc + systemctl) setup — needs sudo
+  system-setup.sh     #   NetworkManager-only, gnome-keyring, wifi powersave (idempotent)
+  etc/                #   /etc drop-ins captured from this machine
 pkgs/
   hyprtasking/        # git submodule → github.com/sitish-kumar/hyprtasking (the fork)
+ARCH-INSTALL.md       # bare-metal Arch → this desktop (incl. PAM keyring step)
 ```
+
+**Two layers:** `config/` is user-level (`~/.config`, symlinked); `system/` is
+system-level (`/etc`, `systemctl` — the network/keyring tweaks). `install.sh` runs
+both; bare-metal Arch install itself is documented in `ARCH-INSTALL.md`.
 
 ## Install (new machine)
 
