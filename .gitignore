@@ -6,3 +6,5 @@ pkgs/hyprtasking/build/
 *.log
 __pycache__/
 config/**/generated/
+# non-portable absolute-path install manifest from the ii base
+config/illogical-impulse/installed_listfile

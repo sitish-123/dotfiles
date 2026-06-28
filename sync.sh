@@ -13,6 +13,7 @@ for d in "${MANAGED_CONFIGS[@]}"; do
         continue
     fi
     rsync -a --delete --exclude '.git' --exclude '*.log' --exclude '__pycache__' \
+        --exclude 'generated' --exclude 'installed_listfile' \
         "$src/" "$DOT_ROOT/config/$d/"
 done
 

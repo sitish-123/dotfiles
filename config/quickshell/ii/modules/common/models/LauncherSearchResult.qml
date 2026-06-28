@@ -29,4 +29,7 @@ QtObject {
 
     // Extra stuff to allow for more flexibility
     property string category: type
+    // Group header for list sectioning (e.g. clipboard "Today"/"Yesterday").
+    // Empty = no header.
+    property string section: ""
 }

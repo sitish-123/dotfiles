@@ -1,27 +1,39 @@
-# Core runtime + build deps for this Hyprland setup (Arch package names).
-# Install with: sudo pacman -S --needed - < bootstrap/packages.txt
-# (AUR packages noted; install those with an AUR helper e.g. `yay -S`.)
+# Packages for this Hyprland setup (Arch).
+# Format: one package per line. Comments on their OWN line (never inline).
+# Lines beginning with `aur:` are AUR packages (installed via an AUR helper).
+# install.sh parses this; don't put trailing comments after a package name.
+#
+# IMPORTANT: this layers ON TOP of the end-4 / illogical-impulse base. For a
+# truly fresh machine, run the upstream dots-hyprland dependency install first
+# (it pulls the large qt6/python/font/portal set this config assumes), THEN
+# clone this repo and run ./install.sh. See README.
 
-# --- Compositor + shell ---
+# --- compositor + session ---
 hyprland
-quickshell-git        # AUR — the bar/launcher/overview (Quickshell)
+hypridle
+hyprlock
 xdg-desktop-portal-hyprland
+polkit-gnome
+pipewire
+wireplumber
+gnome-keyring
 
-# --- Theming ---
-matugen-bin           # AUR — Material You color generation from wallpaper
+# --- theming ---
+aur:matugen-bin
 
-# --- Launcher / clipboard / input ---
+# --- shell / launcher / clipboard / input ---
+aur:quickshell-git
 cliphist
 wl-clipboard
 wtype
 ydotool
 fuzzel
 
-# --- Terminals (used by launch_first_available) ---
+# --- terminals (launch_first_available) ---
 foot
 kitty
 
-# --- Hyprland plugin build toolchain (for hyprpm + the hyprtasking fork) ---
+# --- plugin build toolchain (hyprpm + hyprtasking fork) ---
 base-devel
 cmake
 meson
@@ -29,13 +41,10 @@ cpio
 pkgconf
 git
 
-# --- Misc utilities referenced by scripts ---
+# --- utilities referenced by scripts/configs ---
 jq
 bc
 rsync
 python
-
-# NOTE: this is the lean set to RUN the setup. The illogical-impulse base has a
-# much larger dependency list (fonts, qt6 bits, python deps). For a true
-# from-scratch machine, also run the upstream end-4/dots-hyprland dependency
-# install once, then `install.sh` lays our configs + plugins on top.
+xorg-xrdb
+geoclue

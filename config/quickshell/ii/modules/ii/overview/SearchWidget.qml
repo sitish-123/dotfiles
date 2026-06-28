@@ -246,6 +246,26 @@ Item { // Wrapper
                     objectProp: "key"
                 }
 
+                // Group rows by their `section` (clipboard day: Today/Yesterday/…).
+                // Empty section (apps, emoji, etc.) renders a zero-height header.
+                section.property: "section"
+                section.criteria: ViewSection.FullString
+                section.delegate: Item {
+                    id: sectionHeader
+                    required property string section
+                    width: ListView.view.width
+                    visible: sectionHeader.section.length > 0
+                    implicitHeight: visible ? sectionHdrLabel.implicitHeight + 10 : 0
+                    StyledText {
+                        id: sectionHdrLabel
+                        anchors { left: parent.left; leftMargin: 12; bottom: parent.bottom; bottomMargin: 2 }
+                        text: sectionHeader.section
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.weight: Font.Medium
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+
                 delegate: SearchItem {
                     id: searchItem
                     // The selectable item for each search result

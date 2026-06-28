@@ -6,13 +6,23 @@ source "$(dirname "$0")/lib/common.sh"
 info "dotfiles install — root: $DOT_ROOT"
 
 # 1) Packages (Arch). Best-effort; skip if not on pacman.
+PKGFILE="$DOT_ROOT/bootstrap/packages.txt"
 if have pacman; then
-    info "Installing packages (sudo pacman)"
-    sudo pacman -S --needed --noconfirm - < "$DOT_ROOT/bootstrap/packages.txt" \
-        | grep -v 'is up to date' || warn "some packages skipped (AUR ones need yay)"
-    warn "AUR packages (quickshell-git, matugen-bin) — install with: yay -S quickshell-git matugen-bin"
+    mapfile -t OFFICIAL < <(grep -vE '^\s*#|^\s*$|^aur:' "$PKGFILE")
+    mapfile -t AUR < <(grep '^aur:' "$PKGFILE" | sed 's/^aur://')
+    info "Installing ${#OFFICIAL[@]} official packages"
+    sudo pacman -S --needed --noconfirm "${OFFICIAL[@]}" || warn "some official packages failed"
+    if have yay; then
+        info "Installing ${#AUR[@]} AUR packages"
+        yay -S --needed --noconfirm "${AUR[@]}" || warn "some AUR packages failed"
+    elif [ "${#AUR[@]}" -gt 0 ]; then
+        warn "No AUR helper found — install manually: yay -S ${AUR[*]}"
+    fi
+    # ydotool daemon (virtual keyboard: clipboard paste, on-screen keyboard)
+    have ydotoold && systemctl --user enable --now ydotool 2>/dev/null || \
+        warn "couldn't enable ydotool daemon (needed for paste/OSK) — check uinput perms"
 else
-    warn "Not an Arch system — install packages from bootstrap/packages.txt manually"
+    warn "Not an Arch system — install packages from $PKGFILE manually"
 fi
 
 # 2) Submodules (the hyprtasking fork).

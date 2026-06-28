@@ -187,6 +187,7 @@ Singleton {
                     name: StringUtils.cleanCliphistEntry(entry),
                     verb: "",
                     type: type,
+                    section: Cliphist.entrySection(entry),  // day header: Today / Yesterday / date
                     execute: () => {
                         Cliphist.copy(entry);
                     },

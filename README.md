@@ -25,15 +25,22 @@ pkgs/
 
 ## Install (new machine)
 
+**Prerequisite (do this FIRST on a truly fresh box):** install the upstream
+[end-4 / dots-hyprland](https://github.com/end-4/dots-hyprland) base once. It pulls
+the large dependency set this config assumes (qt6, fonts, portal, pipewire, polkit,
+keyring) and creates the `~/.config/illogical-impulse` (→ `inir`) base. *Then* layer
+this repo on top:
+
 ```bash
-git clone --recurse-submodules git@github.com:sitish-kumar/dotfiles.git ~/Projects/dotfiles
+git clone --recurse-submodules https://github.com/sitish-kumar/dotfiles.git ~/Projects/dotfiles
 cd ~/Projects/dotfiles
-./install.sh
-# AUR bits: yay -S quickshell-git matugen-bin
+./install.sh        # packages (official+AUR via yay) → submodule → symlink configs → build fork → ydotool
 ```
 
 `install.sh` backs up any existing `~/.config/{hypr,quickshell,matugen,illogical-impulse}`
-before symlinking ours in.
+before symlinking ours in, and enables the `ydotool` user service (needed for
+clipboard-paste and the on-screen keyboard). An AUR helper (`yay`) is required for
+`quickshell-git` / `matugen-bin`.
 
 ## Keep it in sync
 
