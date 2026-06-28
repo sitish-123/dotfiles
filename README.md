@@ -1,8 +1,9 @@
 # dotfiles
 
-My Hyprland desktop — a customized, self-owned fork of the *illogical-impulse*
-(end-4) Quickshell setup, plus a forked **hyprtasking** overview plugin. Built to
-be re-installable from scratch and easy to keep improving.
+My Hyprland desktop — a self-owned Quickshell setup (originally derived from
+*illogical-impulse*, now vendored and modified as our own `ii`), plus a forked
+**hyprtasking** overview plugin. Built to be re-installable from scratch and easy
+to keep improving.
 
 ## Layout
 
@@ -25,11 +26,11 @@ pkgs/
 
 ## Install (new machine)
 
-**Prerequisite (do this FIRST on a truly fresh box):** install the upstream
-[end-4 / dots-hyprland](https://github.com/end-4/dots-hyprland) base once. It pulls
-the large dependency set this config assumes (qt6, fonts, portal, pipewire, polkit,
-keyring) and creates the `~/.config/illogical-impulse` (→ `inir`) base. *Then* layer
-this repo on top:
+**Self-contained — no separate end-4 installer step.** This repo owns the *config*;
+the heavy dependency stack (qt6, fonts, portal, pipewire, quickshell) comes from the
+`illogical-impulse-*` AUR **packages** listed in `bootstrap/packages.txt`, which
+`install.sh` installs for you. (The `ii` config is ours; `illogical-impulse-quickshell-git`
+is just the Quickshell *runtime* it runs on — different things.)
 
 ```bash
 git clone --recurse-submodules https://github.com/sitish-kumar/dotfiles.git ~/Projects/dotfiles
@@ -37,10 +38,11 @@ cd ~/Projects/dotfiles
 ./install.sh        # packages (official+AUR via yay) → submodule → symlink configs → build fork → ydotool
 ```
 
-`install.sh` backs up any existing `~/.config/{hypr,quickshell,matugen,illogical-impulse}`
-before symlinking ours in, and enables the `ydotool` user service (needed for
-clipboard-paste and the on-screen keyboard). An AUR helper (`yay`) is required for
-`quickshell-git` / `matugen-bin`.
+**Requires an AUR helper (`yay`)** — the `illogical-impulse-*` meta-packages and
+`matugen-bin` are AUR-only. `install.sh` backs up any existing
+`~/.config/{hypr,quickshell,matugen,illogical-impulse}` before symlinking ours in,
+and enables the `ydotool` user service (needed for clipboard-paste and the on-screen
+keyboard).
 
 ## Keep it in sync
 

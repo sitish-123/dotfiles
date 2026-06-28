@@ -1,28 +1,34 @@
-# Packages for this Hyprland setup (Arch).
-# Format: one package per line. Comments on their OWN line (never inline).
-# Lines beginning with `aur:` are AUR packages (installed via an AUR helper).
-# install.sh parses this; don't put trailing comments after a package name.
+# Packages for this Hyprland + Quickshell(ii) setup (Arch).
+# Format: one package per line; comments on their OWN line (never inline).
+# Lines starting `aur:` need an AUR helper (yay). install.sh parses this.
 #
-# IMPORTANT: this layers ON TOP of the end-4 / illogical-impulse base. For a
-# truly fresh machine, run the upstream dots-hyprland dependency install first
-# (it pulls the large qt6/python/font/portal set this config assumes), THEN
-# clone this repo and run ./install.sh. See README.
+# SELF-CONTAINED: we own the CONFIG (vendored in config/). The desktop's deps come
+# from the `illogical-impulse-*` AUR meta-packages below — these pull the full
+# qt6 / fonts / python / portal / quickshell stack transitively. No separate
+# "run the end-4 installer" step is needed; `install.sh` installs everything here.
+# (The ii *config* = our repo; `illogical-impulse-quickshell-git` = the ii-flavored
+# Quickshell *runtime* — different things.)
 
-# --- compositor + session ---
-hyprland
-hypridle
-hyprlock
-xdg-desktop-portal-hyprland
-polkit-gnome
-pipewire
-wireplumber
-gnome-keyring
+# --- illogical-impulse meta-packages (the base; pull most deps transitively) ---
+aur:illogical-impulse-basic
+aur:illogical-impulse-hyprland
+aur:illogical-impulse-quickshell-git
+aur:illogical-impulse-toolkit
+aur:illogical-impulse-widgets
+aur:illogical-impulse-python
+aur:illogical-impulse-audio
+aur:illogical-impulse-backlight
+aur:illogical-impulse-portal
+aur:illogical-impulse-screencapture
+aur:illogical-impulse-kde
+aur:illogical-impulse-fonts-themes
+aur:illogical-impulse-bibata-modern-classic-bin
+aur:illogical-impulse-microtex-git
 
 # --- theming ---
 aur:matugen-bin
 
-# --- shell / launcher / clipboard / input ---
-aur:quickshell-git
+# --- launcher / clipboard / input (list explicitly; --needed dedupes) ---
 cliphist
 wl-clipboard
 wtype
@@ -41,10 +47,7 @@ cpio
 pkgconf
 git
 
-# --- utilities referenced by scripts/configs ---
+# --- small utilities referenced by scripts ---
 jq
 bc
 rsync
-python
-xorg-xrdb
-geoclue
