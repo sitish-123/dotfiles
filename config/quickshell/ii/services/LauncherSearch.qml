@@ -174,22 +174,25 @@ Singleton {
         if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
             // Clipboard
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.clipboard);
-            return Cliphist.fuzzyQuery(searchString).map((entry, index, array) => {
+            return Cliphist.withPinnedFirst(Cliphist.fuzzyQuery(searchString)).map((entry, index, array) => {
                 const mightBlurImage = Cliphist.entryIsImage(entry) && root.clipboardWorkSafetyActive;
                 let shouldBlurImage = mightBlurImage;
                 if (mightBlurImage) {
                     shouldBlurImage = shouldBlurImage && (root.containsUnsafeLink(array[index - 1]) || root.containsUnsafeLink(array[index + 1]));
                 }
+                const pinned = Cliphist.isPinned(entry);
                 const __ts = Cliphist.entryTimeLabel(entry);
                 const type = __ts ? `${Cliphist.entrySection(entry)} · ${__ts}` : `#${entry.match(/^\s*(\S+)/)?.[1] || ""}`;
                 return resultComp.createObject(null, {
                     rawValue: entry,
                     name: StringUtils.cleanCliphistEntry(entry),
-                    verb: "",
+                    verb: Translation.tr("Paste"),
                     type: type,
-                    section: Cliphist.entrySection(entry),  // day header: Today / Yesterday / date
+                    iconName: Cliphist.entryIcon(entry),  // smart per-type icon
+                    iconType: LauncherSearchResult.IconType.Material,
+                    section: Cliphist.entrySection(entry),  // day header: Pinned / Today / Yesterday / date
                     execute: () => {
-                        Cliphist.copy(entry);
+                        Cliphist.paste(entry);   // type into the app you came from
                     },
                     actions: [resultComp.createObject(null, {
                             name: Translation.tr("Copy"),
@@ -197,6 +200,15 @@ Singleton {
                             iconType: LauncherSearchResult.IconType.Material,
                             execute: () => {
                                 Cliphist.copy(entry);
+                            }
+                        }), resultComp.createObject(null, {
+                            name: pinned ? Translation.tr("Unpin") : Translation.tr("Pin"),
+                            iconName: pinned ? "keep" : "keep_off",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => {
+                                Cliphist.togglePin(entry);
+                                // `results` is a binding on Cliphist.pins, so it
+                                // re-sorts automatically when the pin set changes.
                             }
                         }), resultComp.createObject(null, {
                             name: Translation.tr("Delete"),

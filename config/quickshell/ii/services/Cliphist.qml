@@ -26,6 +26,7 @@ Singleton {
         return t ? new Date(t * 1000).toLocaleTimeString(Qt.locale(), "HH:mm") : "";
     }
     function entrySection(entry) {
+        if (root.isPinned(entry)) return "Pinned";
         const t = root.entryTime(entry);
         if (!t) return "Earlier";
         const d = new Date(t * 1000), now = new Date();
@@ -35,6 +36,46 @@ Singleton {
         if (diff === 1) return "Yesterday";
         if (diff < 7) return d.toLocaleDateString(Qt.locale(), "dddd");
         return d.toLocaleDateString(Qt.locale(), "MMM d");
+    }
+
+    // --- Pin / favorite ---------------------------------------------------
+    // Pinned by content (the part after the cliphist id), so a pin survives
+    // even when cliphist re-assigns ids on re-copy. Persisted to JSON.
+    property var pins: []   // array of content keys, newest pin first
+    function entryKey(entry) {
+        return `${entry}`.split("\t").slice(1).join("\t");
+    }
+    function isPinned(entry) {
+        return root.pins.includes(root.entryKey(entry));
+    }
+    function togglePin(entry) {
+        const key = root.entryKey(entry);
+        if (!key) return;
+        const without = (root.pins ?? []).filter(k => k !== key);
+        if (without.length === (root.pins ?? []).length)
+            without.unshift(key);   // wasn't pinned -> pin it
+        root.pins = without;
+        pinsFileView.setText(JSON.stringify(root.pins));
+    }
+    // Pinned entries first (in pin order), then the rest in cliphist order.
+    function withPinnedFirst(list) {
+        const pinned = [], rest = [];
+        for (const e of list) (root.isPinned(e) ? pinned : rest).push(e);
+        pinned.sort((a, b) => root.pins.indexOf(root.entryKey(a)) - root.pins.indexOf(root.entryKey(b)));
+        return pinned.concat(rest);
+    }
+
+    // --- Smart icon -------------------------------------------------------
+    // A material symbol hinting at the entry's content type.
+    function entryIcon(entry) {
+        if (root.entryIsImage(entry)) return "image";
+        const content = root.entryKey(entry).trim();
+        if (/^https?:\/\//i.test(content)) return "link";
+        if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(content)) return "palette";
+        if (/^(?:\/|~\/|\.\.?\/)\S*$/.test(content)) return "folder";
+        if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(content)) return "mail";
+        if (/^[+\-]?[\d.,\s]+$/.test(content) && /\d/.test(content)) return "tag";
+        return "content_paste";
     }
     readonly property var preparedEntries: entries.map(a => ({
         name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
@@ -82,11 +123,13 @@ Singleton {
     }
 
     function paste(entry) {
+        // Copy the entry, then (after the launcher closes and focus returns to
+        // the app) press Ctrl+V via ydotool so it actually types into the app.
         if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && wl-paste`]);
+            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && sleep 0.15 && ${root.pressPasteCommand}`]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
+            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; sleep 0.15; ${root.pressPasteCommand}`]);
         }
     }
 
@@ -191,6 +234,25 @@ Singleton {
         }
         onLoadFailed: () => {
             root.times = ({});
+        }
+    }
+
+    Component.onCompleted: pinsFileView.reload()
+
+    FileView {
+        id: pinsFileView
+        path: Qt.resolvedUrl(`${Directories.state}/user/cliphist_pins.json`)
+        onLoaded: {
+            try {
+                root.pins = JSON.parse(pinsFileView.text()) ?? [];
+            } catch (e) {
+                root.pins = [];
+            }
+        }
+        onLoadFailed: error => {
+            root.pins = [];
+            if (error == FileViewError.FileNotFound)
+                pinsFileView.setText(JSON.stringify(root.pins));
         }
     }
 }
