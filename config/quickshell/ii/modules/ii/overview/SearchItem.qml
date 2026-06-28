@@ -34,7 +34,10 @@ RippleButton {
     property string materialSymbol: entry.iconType === LauncherSearchResult.IconType.Material ? entry?.iconName ?? "" : ""
     property string cliphistRawString: entry?.rawValue ?? ""
     property bool blurImage: entry?.blurImage ?? false
-    
+    // Day-group header (e.g. "Pinned"/"Today"); set only on the first item of a group.
+    property string sectionHeader: entry?.sectionHeader ?? ""
+    readonly property real sectionHeaderHeight: sectionHeaderLabel.visible ? sectionHeaderLabel.implicitHeight + 10 : 0
+
     visible: root.entryShown
     property int horizontalMargin: 10
     property int buttonHorizontalPadding: 10
@@ -42,7 +45,7 @@ RippleButton {
     property bool keyboardDown: false
     readonly property bool selected: (root.hovered || root.focus)
 
-    implicitHeight: rowLayout.implicitHeight + root.buttonVerticalPadding * 2
+    implicitHeight: rowLayout.implicitHeight + root.buttonVerticalPadding * 2 + root.sectionHeaderHeight
     implicitWidth: rowLayout.implicitWidth + root.buttonHorizontalPadding * 2
     buttonRadius: Appearance.rounding.normal
     colBackground: (root.down || root.keyboardDown) ? Appearance.colors.colPrimaryContainerActive : 
@@ -101,6 +104,21 @@ RippleButton {
         anchors.fill: root
         anchors.leftMargin: root.horizontalMargin
         anchors.rightMargin: root.horizontalMargin
+        anchors.topMargin: root.sectionHeaderHeight  // keep highlight below the header
+    }
+
+    StyledText {
+        id: sectionHeaderLabel
+        visible: root.sectionHeader.length > 0
+        anchors {
+            top: parent.top
+            left: parent.left
+            leftMargin: root.horizontalMargin + root.buttonHorizontalPadding
+        }
+        text: root.sectionHeader
+        font.pixelSize: Appearance.font.pixelSize.smaller
+        font.weight: Font.Medium
+        color: Appearance.colors.colSubtext
     }
 
     onClicked: {
@@ -131,6 +149,7 @@ RippleButton {
         id: rowLayout
         spacing: iconLoader.sourceComponent === null ? 0 : 10
         anchors.fill: parent
+        anchors.topMargin: root.sectionHeaderHeight  // sit below the day header
         anchors.leftMargin: root.horizontalMargin + root.buttonHorizontalPadding
         anchors.rightMargin: root.horizontalMargin + root.buttonHorizontalPadding
 

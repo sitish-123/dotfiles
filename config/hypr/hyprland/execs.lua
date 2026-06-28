@@ -15,8 +15,9 @@ hl.on("hyprland.start", function ()
     -- Audio
     hl.exec_cmd("easyeffects --hide-window --service-mode")
 
-    -- Clipboard: history
-    hl.exec_cmd("wl-paste --watch cliphist store")
+    -- Clipboard: history. The store script does `cliphist store` AND records a
+    -- timestamp sidecar, so we must NOT also run a bare `cliphist store` watcher
+    -- (that double-stores and races, and the timestamp never gets recorded).
     hl.exec_cmd("wl-paste --type text --watch ~/.config/hypr/hyprland/scripts/cliphist-store.sh")
     hl.exec_cmd("wl-paste --type image --watch ~/.config/hypr/hyprland/scripts/cliphist-store.sh")
 

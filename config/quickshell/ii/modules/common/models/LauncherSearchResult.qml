@@ -32,4 +32,8 @@ QtObject {
     // Group header for list sectioning (e.g. clipboard "Today"/"Yesterday").
     // Empty = no header.
     property string section: ""
+    // Set to the section label ONLY on the first item of each group, so the
+    // delegate can draw a header above it. (ScriptModel doesn't expose `section`
+    // as a ViewSection role, so we section manually.)
+    property string sectionHeader: ""
 }

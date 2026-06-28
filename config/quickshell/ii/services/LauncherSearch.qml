@@ -174,7 +174,7 @@ Singleton {
         if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
             // Clipboard
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.clipboard);
-            return Cliphist.withPinnedFirst(Cliphist.fuzzyQuery(searchString)).map((entry, index, array) => {
+            const clipItems = Cliphist.withPinnedFirst(Cliphist.fuzzyQuery(searchString)).map((entry, index, array) => {
                 const mightBlurImage = Cliphist.entryIsImage(entry) && root.clipboardWorkSafetyActive;
                 let shouldBlurImage = mightBlurImage;
                 if (mightBlurImage) {
@@ -221,6 +221,13 @@ Singleton {
                     blurImage: shouldBlurImage
                 });
             }).filter(Boolean);
+            // Mark the first item of each section so the delegate draws a header.
+            let prevSection = null;
+            for (const it of clipItems) {
+                it.sectionHeader = (it.section && it.section !== prevSection) ? it.section : "";
+                prevSection = it.section;
+            }
+            return clipItems;
         } else if (root.query.startsWith(Config.options.search.prefix.emojis)) {
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.emojis).trim();
             const makeEmoji = (emoji, name) => resultComp.createObject(null, {

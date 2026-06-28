@@ -64,9 +64,11 @@ Rectangle {
         }
     }
 
-    Component.onDestruction: {
-        Quickshell.execDetached(["bash", "-c", `[ -f '${imageDecodeFilePath}' ] && rm -f '${imageDecodeFilePath}'`]);
-    }
+    // NOTE: deliberately NOT deleting the decoded file on destruction.
+    // The decode path is keyed only by entry number, so when the ListView
+    // recycles/re-creates delegates while scrolling, an old delegate's cleanup
+    // would race a new one and blank the image. The whole decode dir is already
+    // wiped at startup (Directories.qml), which bounds growth per session.
 
     layer.enabled: true
     layer.effect: OpacityMask {
