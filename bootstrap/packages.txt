@@ -1,0 +1,41 @@
+# Core runtime + build deps for this Hyprland setup (Arch package names).
+# Install with: sudo pacman -S --needed - < bootstrap/packages.txt
+# (AUR packages noted; install those with an AUR helper e.g. `yay -S`.)
+
+# --- Compositor + shell ---
+hyprland
+quickshell-git        # AUR — the bar/launcher/overview (Quickshell)
+xdg-desktop-portal-hyprland
+
+# --- Theming ---
+matugen-bin           # AUR — Material You color generation from wallpaper
+
+# --- Launcher / clipboard / input ---
+cliphist
+wl-clipboard
+wtype
+ydotool
+fuzzel
+
+# --- Terminals (used by launch_first_available) ---
+foot
+kitty
+
+# --- Hyprland plugin build toolchain (for hyprpm + the hyprtasking fork) ---
+base-devel
+cmake
+meson
+cpio
+pkgconf
+git
+
+# --- Misc utilities referenced by scripts ---
+jq
+bc
+rsync
+python
+
+# NOTE: this is the lean set to RUN the setup. The illogical-impulse base has a
+# much larger dependency list (fonts, qt6 bits, python deps). For a true
+# from-scratch machine, also run the upstream end-4/dots-hyprland dependency
+# install once, then `install.sh` lays our configs + plugins on top.

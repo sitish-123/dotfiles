@@ -1,0 +1,3 @@
+[submodule "pkgs/hyprtasking"]
+	path = pkgs/hyprtasking
+	url = git@github.com:sitish-kumar/hyprtasking.git

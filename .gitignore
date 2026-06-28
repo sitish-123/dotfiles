@@ -1,0 +1,8 @@
+# build artifacts (the fork is a submodule; its build is regenerated)
+pkgs/hyprtasking/build/
+# backups created by the symlink installer
+*.bak.*
+# logs / caches / state
+*.log
+__pycache__/
+config/**/generated/

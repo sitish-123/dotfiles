@@ -1,0 +1,11 @@
+{
+  "applied": [
+    "010-terminal-keybinds-dynamic",
+    "014-malloc-arena-optimization",
+    "018-modularize-niri-config",
+    "019-config-dir-rename-compat",
+    "024-steam-millennium",
+    "027-niri-xdg-activation"
+  ],
+  "skipped": []
+}
