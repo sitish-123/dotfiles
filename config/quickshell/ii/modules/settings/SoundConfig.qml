@@ -8,99 +8,87 @@ import Quickshell.Services.Pipewire
 ContentPage {
     forceWidth: true
 
-    // Reusable volume row + device list, parameterized for output vs input.
-    component AudioSection: ContentSection {
-        property var node: null
-        property var devices: []
-        property bool isInput: false
-        property var setDefault: function(n) {}
-        property var defaultId: null
+    ContentSection {
+        icon: "volume_up"
+        title: Translation.tr("Output")
 
-        RowLayout { // volume + mute
+        RowLayout {
             Layout.fillWidth: true
             spacing: 10
             RippleButton {
                 implicitWidth: 36; implicitHeight: 36
                 buttonRadius: Appearance.rounding.full
-                releaseAction: () => { if (node?.audio) node.audio.muted = !node.audio.muted }
+                releaseAction: () => { if (Audio.sink?.audio) Audio.sink.audio.muted = !Audio.sink.audio.muted }
                 contentItem: MaterialSymbol {
                     anchors.centerIn: parent
-                    text: node?.audio?.muted ? (isInput ? "mic_off" : "volume_off")
-                        : (isInput ? "mic" : "volume_up")
+                    text: Audio.sink?.audio?.muted ? "volume_off" : "volume_up"
                     iconSize: Appearance.font.pixelSize.larger
-                    color: node?.audio?.muted ? Appearance.colors.colSubtext : Appearance.colors.colOnSurfaceVariant
+                    color: Audio.sink?.audio?.muted ? Appearance.colors.colSubtext : Appearance.colors.colOnSurfaceVariant
                 }
             }
             StyledSlider {
                 Layout.fillWidth: true
                 from: 0; to: 1
-                value: node?.audio?.volume ?? 0
-                onMoved: if (node?.audio) node.audio.volume = value
+                value: Audio.sink?.audio?.volume ?? 0
+                onMoved: if (Audio.sink?.audio) Audio.sink.audio.volume = value
             }
-            StyledText {
-                Layout.minimumWidth: 38
-                horizontalAlignment: Text.AlignRight
-                color: Appearance.colors.colOnSurface
-                text: `${Math.round((node?.audio?.volume ?? 0) * 100)}%`
-            }
+            StyledText { Layout.minimumWidth: 38; horizontalAlignment: Text.AlignRight; color: Appearance.colors.colOnSurface; text: `${Math.round((Audio.sink?.audio?.volume ?? 0) * 100)}%` }
         }
 
-        StyledText {
-            Layout.topMargin: 4
-            text: Translation.tr("Device")
-            color: Appearance.colors.colSubtext
-            font.pixelSize: Appearance.font.pixelSize.smaller
-        }
+        StyledText { Layout.topMargin: 4; text: Translation.tr("Device"); color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
         Repeater {
-            model: ScriptModel { values: devices }
-            delegate: RippleButton {
+            model: ScriptModel { values: Audio.outputDevices }
+            delegate: RowLayout {
                 required property var modelData
+                readonly property bool isDefault: modelData.id === (Pipewire.defaultAudioSink?.id ?? -1)
                 Layout.fillWidth: true
-                implicitHeight: 40
-                buttonRadius: Appearance.rounding.small
-                toggled: modelData.id === defaultId
-                colBackgroundToggled: Appearance.colors.colSecondaryContainer
-                onClicked: setDefault(modelData)
-                contentItem: RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 10
-                    StyledText {
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        color: Appearance.colors.colOnSurface
-                        text: modelData.description ?? modelData.name ?? Translation.tr("Unknown")
-                        textFormat: Text.PlainText
-                    }
-                    MaterialSymbol {
-                        visible: modelData.id === defaultId
-                        text: "check"
-                        iconSize: Appearance.font.pixelSize.larger
-                        color: Appearance.colors.colPrimary
-                    }
-                }
+                spacing: 10
+                MaterialSymbol { text: parent.isDefault ? "check_circle" : "speaker"; iconSize: Appearance.font.pixelSize.larger; color: parent.isDefault ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant }
+                StyledText { Layout.fillWidth: true; elide: Text.ElideRight; color: Appearance.colors.colOnSurface; text: modelData.description ?? modelData.name ?? Translation.tr("Unknown"); textFormat: Text.PlainText }
+                DialogButton { visible: !parent.isDefault; buttonText: Translation.tr("Use"); onClicked: Audio.setDefaultSink(modelData) }
             }
         }
     }
 
-    AudioSection {
-        icon: "volume_up"
-        title: Translation.tr("Output")
-        node: Audio.sink
-        devices: Audio.outputDevices
-        isInput: false
-        defaultId: Pipewire.defaultAudioSink?.id ?? null
-        setDefault: function(n) { Audio.setDefaultSink(n); }
-    }
-
-    AudioSection {
+    ContentSection {
         icon: "mic"
         title: Translation.tr("Input")
-        node: Audio.source
-        devices: Audio.inputDevices
-        isInput: true
-        defaultId: Pipewire.defaultAudioSource?.id ?? null
-        setDefault: function(n) { Audio.setDefaultSource(n); }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            RippleButton {
+                implicitWidth: 36; implicitHeight: 36
+                buttonRadius: Appearance.rounding.full
+                releaseAction: () => { if (Audio.source?.audio) Audio.source.audio.muted = !Audio.source.audio.muted }
+                contentItem: MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: Audio.source?.audio?.muted ? "mic_off" : "mic"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Audio.source?.audio?.muted ? Appearance.colors.colSubtext : Appearance.colors.colOnSurfaceVariant
+                }
+            }
+            StyledSlider {
+                Layout.fillWidth: true
+                from: 0; to: 1
+                value: Audio.source?.audio?.volume ?? 0
+                onMoved: if (Audio.source?.audio) Audio.source.audio.volume = value
+            }
+            StyledText { Layout.minimumWidth: 38; horizontalAlignment: Text.AlignRight; color: Appearance.colors.colOnSurface; text: `${Math.round((Audio.source?.audio?.volume ?? 0) * 100)}%` }
+        }
+
+        StyledText { Layout.topMargin: 4; text: Translation.tr("Device"); color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
+        Repeater {
+            model: ScriptModel { values: Audio.inputDevices }
+            delegate: RowLayout {
+                required property var modelData
+                readonly property bool isDefault: modelData.id === (Pipewire.defaultAudioSource?.id ?? -1)
+                Layout.fillWidth: true
+                spacing: 10
+                MaterialSymbol { text: parent.isDefault ? "check_circle" : "mic"; iconSize: Appearance.font.pixelSize.larger; color: parent.isDefault ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant }
+                StyledText { Layout.fillWidth: true; elide: Text.ElideRight; color: Appearance.colors.colOnSurface; text: modelData.description ?? modelData.name ?? Translation.tr("Unknown"); textFormat: Text.PlainText }
+                DialogButton { visible: !parent.isDefault; buttonText: Translation.tr("Use"); onClicked: Audio.setDefaultSource(modelData) }
+            }
+        }
     }
 }

@@ -106,6 +106,7 @@ Singleton {
         } else {
             root.onBatterySince = root.nowSec();
             root.screenOnSeconds = 0;
+            root.lastTick = root.nowSec();
         }
         root.persistUsage();
         // Sounds
@@ -157,11 +158,29 @@ Singleton {
     property int screenOnSeconds: 0    // awake seconds since last unplug
     readonly property int onBatterySeconds: onBatterySince > 0 ? Math.max(0, nowSec() - onBatterySince) : 0
 
-    Timer { // accumulate awake/on-battery time
-        interval: 60000
+    // Screen-on time: only count while a display is actually powered (DPMS on). A
+    // closed lid / blanked screen must NOT count. Suspend can't count either (the
+    // timer is frozen) — and the per-tick cap stops a resume from dumping in the gap.
+    property double lastTick: 0
+    Timer {
+        interval: 30000
         running: !root.isPluggedIn
         repeat: true
-        onTriggered: { root.screenOnSeconds += 60; root.persistUsage(); }
+        onTriggered: dpmsCheckProc.running = true   // check DPMS, then accumulate in onExited
+    }
+    Process {
+        id: dpmsCheckProc
+        command: ["bash", "-c", "hyprctl monitors -j 2>/dev/null | grep -c '\"dpmsStatus\": true'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const anyOn = (parseInt(text.trim()) || 0) > 0;
+                const now = root.nowSec();
+                if (root.lastTick === 0) root.lastTick = now;
+                if (anyOn) root.screenOnSeconds += Math.min(now - root.lastTick, 45);  // cap → suspend gap ignored
+                root.lastTick = now;
+                root.persistUsage();
+            }
+        }
     }
 
     function persistUsage() {

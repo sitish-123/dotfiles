@@ -197,7 +197,7 @@
     "battery": {
         "automaticSuspend": true,
         "critical": 5,
-        "full": 101,
+        "full": 100,
         "low": 20,
         "suspend": 3
     },
