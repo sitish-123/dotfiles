@@ -82,6 +82,36 @@ if [ -f "$BTCONF" ]; then
     ok "Bluetooth tuned (FastConnectable/AutoEnable/Reconnect)"
 fi
 
+# 4c) Face unlock (howdy) ----------------------------------------------------
+# pam_howdy is "sufficient", so a failed face-match just falls through to the
+# password — it can't lock you out, which makes auto-wiring hyprlock safe.
+if have howdy && [ -f /usr/lib/security/pam_howdy.so ]; then
+    info "Face unlock: installing /etc/howdy/config.ini"
+    sudo install -Dm644 "$SYS/etc/howdy/config.ini" /etc/howdy/config.ini
+    HOWDY_PAM=/etc/pam.d/hyprlock
+    if [ -f "$HOWDY_PAM" ] && ! grep -q pam_howdy "$HOWDY_PAM"; then
+        info "Wiring pam_howdy into $HOWDY_PAM (lockscreen face unlock)"
+        sudo sed -i '1i auth sufficient pam_howdy.so' "$HOWDY_PAM"
+    fi
+    ok "howdy configured — run 'sudo howdy add' to enroll; set [video] device_path per camera"
+else
+    warn "howdy not installed (aur:howdy-git) — skipping face unlock wiring"
+fi
+
+# 4d) Timeshift backups ------------------------------------------------------
+# Seed the schedule template only if unconfigured; never clobber a real config
+# (it holds the machine-specific backup device UUID).
+if have timeshift; then
+    if [ ! -f /etc/timeshift/timeshift.json ] || ! grep -q '"backup_device_uuid" *: *"[^"]' /etc/timeshift/timeshift.json 2>/dev/null; then
+        info "Timeshift: seeding schedule template (pick a backup device in the app)"
+        sudo install -Dm644 "$SYS/etc/timeshift/timeshift.json" /etc/timeshift/timeshift.json
+    fi
+    sudo systemctl enable cronie.service 2>/dev/null || true  # timeshift schedules via cron
+    ok "timeshift present — open it once to choose the backup device, then snapshots run on schedule"
+else
+    warn "timeshift not installed — skipping backup setup"
+fi
+
 # 5) PAM keyring auto-unlock — CHECK ONLY (never auto-edit /etc/pam.d) --------
 DM_PAM="/etc/pam.d/sddm"
 if [ -f "$DM_PAM" ] && ! grep -q pam_gnome_keyring "$DM_PAM"; then

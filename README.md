@@ -14,6 +14,7 @@ sync.sh               # capture live ~/.config edits → commit → push (incl. 
 lib/common.sh         # shared helpers (logging, symlink-with-backup)
 bootstrap/
   packages.txt        # Arch package list (+ AUR notes)
+  dev-packages.txt    # OPT-IN dev stack (editors/langs/docker/...) — ./install.sh --dev
   plugins.sh          # hyprpm setup + build the hyprtasking fork
 config/               # symlinked into ~/.config/
   hypr/               #   Hyprland (Lua config) — keybinds, gestures, overview switcher
@@ -21,8 +22,8 @@ config/               # symlinked into ~/.config/
   matugen/            #   Material You color generation
   illogical-impulse/  #   ii settings/actions
 system/               # system-level (/etc + systemctl) setup — needs sudo
-  system-setup.sh     #   NetworkManager-only, gnome-keyring, wifi powersave (idempotent)
-  etc/                #   /etc drop-ins captured from this machine
+  system-setup.sh     #   NetworkManager-only, gnome-keyring, face-unlock, timeshift (idempotent)
+  etc/                #   /etc drop-ins: NM, howdy (face unlock), timeshift (backup template)
 pkgs/
   hyprtasking/        # git submodule → github.com/sitish-kumar/hyprtasking (the fork)
 ARCH-INSTALL.md       # bare-metal Arch → this desktop (incl. PAM keyring step)

@@ -1,0 +1,28 @@
+# OPT-IN development software (captured from the reference machine).
+# NOT installed by default. Install with:  ./install.sh --dev   (or: ./install.sh --dev --no-system)
+# Same format as packages.txt: one package per line, `aur:` prefix needs yay,
+# comments on their own line.
+
+# --- editors / IDEs ---
+aur:visual-studio-code-bin
+vim
+
+# --- version control ---
+github-cli
+
+# --- languages / runtimes ---
+nodejs
+npm
+python-pip
+jdk17-openjdk
+
+# --- containers (enable the service after: sudo systemctl enable --now docker) ---
+docker
+docker-compose
+
+# --- databases ---
+postgresql
+
+# --- mobile / android ---
+android-tools
+aur:android-studio
