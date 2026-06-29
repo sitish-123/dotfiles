@@ -24,6 +24,11 @@ ApplicationWindow {
     property bool showNextTime: false
     property var pages: [
         {
+            name: Translation.tr("Battery"),
+            icon: "battery_full",
+            component: "modules/settings/BatteryConfig.qml"
+        },
+        {
             name: Translation.tr("Quick"),
             icon: "instant_mix",
             component: "modules/settings/QuickConfig.qml"

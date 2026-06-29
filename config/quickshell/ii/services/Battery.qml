@@ -98,11 +98,89 @@ Singleton {
     }
 
     onIsPluggedInChanged: {
-        if (!root.available || !root.soundEnabled) return;
-        if (isPluggedIn) {
-            Audio.playSystemSound("power-plug")
+        // Usage tracking: reset the on-battery clock + screen-on counter on each unplug.
+        if (root.isPluggedIn) {
+            root.onBatterySince = 0;
         } else {
-            Audio.playSystemSound("power-unplug")
+            root.onBatterySince = root.nowSec();
+            root.screenOnSeconds = 0;
         }
+        root.persistUsage();
+        // Sounds
+        if (!root.available || !root.soundEnabled) return;
+        Audio.playSystemSound(isPluggedIn ? "power-plug" : "power-unplug");
+    }
+
+    onIsFullChanged: if (isFull) { root.lastFullTime = root.nowSec(); root.persistUsage(); }
+
+    // --- Hardware extras (UPower doesn't expose all) -------------------------
+    property int cycleCount: 0
+    property real voltage: 0       // volts
+    property string technology: ""
+    property real energyNow: 0     // Wh
+    property real energyFull: 0    // Wh
+    property real energyFullDesign: 0
+
+    Process {
+        id: sysReadProc
+        running: true
+        command: ["bash", "-c",
+            'b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1); [ -z "$b" ] && exit 0; ' +
+            'echo "cycle:$(cat $b/cycle_count 2>/dev/null)"; ' +
+            'echo "volt:$(cat $b/voltage_now 2>/dev/null)"; ' +
+            'echo "tech:$(cat $b/technology 2>/dev/null)"; ' +
+            'echo "enow:$(cat $b/energy_now 2>/dev/null)"; ' +
+            'echo "efull:$(cat $b/energy_full 2>/dev/null)"; ' +
+            'echo "edesign:$(cat $b/energy_full_design 2>/dev/null)"'
+        ]
+        stdout: SplitParser {
+            onRead: line => {
+                const i = line.indexOf(":"); if (i < 0) return;
+                const k = line.slice(0, i), v = line.slice(i + 1).trim();
+                if (k === "cycle") root.cycleCount = parseInt(v) || 0;
+                else if (k === "volt") root.voltage = (parseInt(v) || 0) / 1e6;
+                else if (k === "tech") root.technology = v;
+                else if (k === "enow") root.energyNow = (parseInt(v) || 0) / 1e6;
+                else if (k === "efull") root.energyFull = (parseInt(v) || 0) / 1e6;
+                else if (k === "edesign") root.energyFullDesign = (parseInt(v) || 0) / 1e6;
+            }
+        }
+    }
+    Timer { interval: 30000; running: true; repeat: true; onTriggered: sysReadProc.running = true }
+
+    // --- Usage tracking (on-battery / screen-on / last full) -----------------
+    function nowSec() { return Math.floor(Date.now() / 1000); }
+    property double onBatterySince: 0  // epoch when last unplugged (0 = plugged in)
+    property double lastFullTime: 0    // epoch when battery last reached full
+    property int screenOnSeconds: 0    // awake seconds since last unplug
+    readonly property int onBatterySeconds: onBatterySince > 0 ? Math.max(0, nowSec() - onBatterySince) : 0
+
+    Timer { // accumulate awake/on-battery time
+        interval: 60000
+        running: !root.isPluggedIn
+        repeat: true
+        onTriggered: { root.screenOnSeconds += 60; root.persistUsage(); }
+    }
+
+    function persistUsage() {
+        usageFile.setText(JSON.stringify({
+            onBatterySince: root.onBatterySince,
+            lastFullTime: root.lastFullTime,
+            screenOnSeconds: root.screenOnSeconds
+        }));
+    }
+    Component.onCompleted: usageFile.reload()
+    FileView {
+        id: usageFile
+        path: Qt.resolvedUrl(`${Directories.state}/user/battery_usage.json`)
+        onLoaded: {
+            try {
+                const d = JSON.parse(usageFile.text());
+                root.onBatterySince = d.onBatterySince ?? 0;
+                root.lastFullTime = d.lastFullTime ?? 0;
+                root.screenOnSeconds = d.screenOnSeconds ?? 0;
+            } catch (e) {}
+        }
+        onLoadFailed: error => { if (error == FileViewError.FileNotFound) root.persistUsage(); }
     }
 }
