@@ -1,11 +1,37 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 
 ContentPage {
+    id: root
     forceWidth: true
+
+    // Top processes by CPU — the closest thing to "what's draining the battery" on Linux.
+    property var procModel: []
+    Process {
+        id: procTop
+        command: ["bash", "-c", "ps -eo comm,%cpu,%mem --sort=-%cpu --no-headers | head -n 8"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.procModel = text.trim().split("\n").filter(l => l.length).map(l => {
+                    const p = l.trim().split(/\s+/);
+                    const mem = parseFloat(p.pop());
+                    const cpu = parseFloat(p.pop());
+                    return { name: p.join(" "), cpu: cpu, mem: mem };
+                });
+            }
+        }
+    }
+    Timer {
+        running: root.visible      // only poll while the Battery page is open
+        repeat: true
+        interval: 4000
+        triggeredOnStart: true
+        onTriggered: procTop.running = true
+    }
 
     function fmtDuration(sec) {
         sec = Math.round(sec);
@@ -147,6 +173,55 @@ ContentPage {
         InfoRow {
             label: Translation.tr("Technology")
             value: Battery.technology || "—"
+        }
+    }
+
+    ContentSection {
+        icon: "monitoring"
+        title: Translation.tr("What's using power")
+
+        StyledText {
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            text: Translation.tr("Linux can't attribute battery use per app. These are the busiest processes by CPU — the main controllable drain — refreshed live. (For deeper device-level analysis, run 'sudo powertop' in a terminal.)")
+        }
+
+        Repeater {
+            model: root.procModel
+            delegate: RowLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                spacing: 10
+                StyledText {
+                    Layout.preferredWidth: 150
+                    elide: Text.ElideRight
+                    text: modelData.name
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnSurface
+                }
+                StyledProgressBar {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    value: Math.max(0, Math.min(1, modelData.cpu / 100))
+                }
+                StyledText {
+                    Layout.preferredWidth: 64
+                    horizontalAlignment: Text.AlignRight
+                    text: `${modelData.cpu.toFixed(0)}% cpu`
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colSubtext
+                }
+            }
+        }
+        StyledText {
+            visible: root.procModel.length === 0
+            Layout.fillWidth: true
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+            text: Translation.tr("Reading processes…")
         }
     }
 }
