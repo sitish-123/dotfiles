@@ -10,8 +10,10 @@ DialogListItem {
     id: root
     required property WifiAccessPoint wifiNetwork
     readonly property bool isActive: wifiNetwork?.active ?? false
+    readonly property bool isEnterprise: wifiNetwork?.isEnterprise ?? false
     readonly property bool expanded: (wifiNetwork?.expanded || wifiNetwork?.askingPassword) ?? false
     readonly property int strength: wifiNetwork?.strength ?? 0
+    property string eapMethod: "peap"   // enterprise EAP method (peap/ttls)
 
     enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !isActive)
     active: (root.expanded || root.isActive) ?? false
@@ -142,9 +144,52 @@ DialogListItem {
                     }
                 }
 
-                MaterialTextField { // Password (secure networks needing auth)
+                ColumnLayout { // Enterprise (802.1X) login: EAP method + identity + password
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 6
+                    visible: root.isEnterprise && !root.isActive
+
+                    RowLayout { // EAP method
+                        Layout.fillWidth: true
+                        spacing: 8
+                        StyledText {
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                            text: Translation.tr("EAP method")
+                        }
+                        Item { Layout.fillWidth: true }
+                        Repeater {
+                            model: ["peap", "ttls"]
+                            delegate: DialogButton {
+                                required property string modelData
+                                buttonText: modelData.toUpperCase()
+                                toggled: root.eapMethod === modelData
+                                colBackground: root.eapMethod === modelData ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
+                                colBackgroundHover: Appearance.colors.colLayer4Hover
+                                onClicked: root.eapMethod = modelData
+                            }
+                        }
+                    }
+                    MaterialTextField {
+                        id: identityField
+                        Layout.fillWidth: true
+                        placeholderText: Translation.tr("Identity (username)")
+                        inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                    }
+                    MaterialTextField {
+                        id: entPasswordField
+                        Layout.fillWidth: true
+                        placeholderText: Translation.tr("Password")
+                        echoMode: TextInput.Password
+                        inputMethodHints: Qt.ImhSensitiveData
+                        onAccepted: Network.connectToWifiEnterprise(root.wifiNetwork, identityField.text, entPasswordField.text, root.eapMethod)
+                    }
+                }
+
+                MaterialTextField { // PSK password (regular secured networks)
                     id: passwordField
-                    visible: root.wifiNetwork?.askingPassword ?? false
+                    visible: (root.wifiNetwork?.askingPassword ?? false) && !root.isEnterprise
                     Layout.fillWidth: true
                     Layout.topMargin: 4
                     placeholderText: Translation.tr("Password")
@@ -174,9 +219,14 @@ DialogListItem {
                     }
                     DialogButton {
                         visible: !root.isActive
-                        buttonText: root.wifiNetwork?.askingPassword ? Translation.tr("Connect with password") : Translation.tr("Connect")
+                        enabled: !root.isEnterprise || identityField.text.length > 0
+                        buttonText: root.isEnterprise ? Translation.tr("Sign in")
+                            : root.wifiNetwork?.askingPassword ? Translation.tr("Connect with password")
+                            : Translation.tr("Connect")
                         onClicked: {
-                            if (root.wifiNetwork?.askingPassword)
+                            if (root.isEnterprise)
+                                Network.connectToWifiEnterprise(root.wifiNetwork, identityField.text, entPasswordField.text, root.eapMethod);
+                            else if (root.wifiNetwork?.askingPassword)
                                 Network.changePassword(root.wifiNetwork, passwordField.text);
                             else
                                 Network.connectToWifiNetwork(root.wifiNetwork);

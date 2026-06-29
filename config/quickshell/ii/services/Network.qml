@@ -19,7 +19,7 @@ Singleton {
 
     property bool wifiEnabled: false
     property bool wifiScanning: false
-    property bool wifiConnecting: connectProc.running
+    property bool wifiConnecting: connectProc.running || connectEnterpriseProc.running
     property WifiAccessPoint wifiConnectTarget
     readonly property list<WifiAccessPoint> wifiNetworks: []
     readonly property WifiAccessPoint active: wifiNetworks.find(n => n.active) ?? null
@@ -82,6 +82,33 @@ Singleton {
 
     function disconnectWifiNetwork(): void {
         if (active) disconnectProc.exec(["nmcli", "connection", "down", active.ssid]);
+    }
+
+    // WPA-Enterprise (802.1X): builds a connection profile with EAP + identity/password.
+    // Defaults to PEAP / MSCHAPv2 (eduroam + most corporate). anonymousIdentity optional.
+    function connectToWifiEnterprise(accessPoint: WifiAccessPoint, identity: string, password: string,
+                                     eap = "peap", phase2 = "mschapv2", anonymousIdentity = ""): void {
+        accessPoint.askingPassword = false;
+        root.wifiConnectTarget = accessPoint;
+        connectEnterpriseProc.exec({
+            "environment": {
+                "SSID": accessPoint.ssid,
+                "IDENTITY": identity,
+                "PASSWORD": password,
+                "EAP": eap,
+                "PHASE2": phase2,
+                "ANON": anonymousIdentity
+            },
+            "command": ["bash", "-c",
+                'dev=$(nmcli -t -f DEVICE,TYPE d | awk -F: \'$2=="wifi"{print $1; exit}\'); ' +
+                'nmcli connection delete id "$SSID" >/dev/null 2>&1; ' +
+                'nmcli connection add type wifi con-name "$SSID" ifname "$dev" ssid "$SSID" ' +
+                'wifi-sec.key-mgmt wpa-eap 802-1x.eap "$EAP" 802-1x.phase2-auth "$PHASE2" ' +
+                '802-1x.identity "$IDENTITY" 802-1x.password "$PASSWORD" ' +
+                '${ANON:+802-1x.anonymous-identity "$ANON"} && ' +
+                'nmcli connection up id "$SSID"'
+            ]
+        });
     }
 
     // Lightweight AP-list refresh (no rescan) — re-reads current APs/signal so the
@@ -153,6 +180,19 @@ Singleton {
         id: disconnectProc
         stdout: SplitParser {
             onRead: getNetworks.running = true
+        }
+    }
+
+    Process {
+        id: connectEnterpriseProc
+        environment: ({ LANG: "C", LC_ALL: "C" })
+        onExited: (exitCode, exitStatus) => {
+            // On failure, re-open the identity/password prompt so the user can retry.
+            if (root.wifiConnectTarget)
+                root.wifiConnectTarget.askingPassword = (exitCode !== 0);
+            root.wifiConnectTarget = null;
+            getNetworks.running = true;
+            root.update();
         }
     }
 
