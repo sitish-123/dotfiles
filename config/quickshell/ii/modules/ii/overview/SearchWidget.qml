@@ -23,8 +23,6 @@ Item { // Wrapper
     property bool showResults: searchingText != ""
     // Emoji mode: render results as a compact grid of bare emojis (no names).
     property bool emojiMode: searchingText.startsWith(Config.options.search.prefix.emojis)
-    // Clipboard mode: also opens with results already present (prefix set before open).
-    property bool clipboardMode: searchingText.startsWith(Config.options.search.prefix.clipboard)
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
@@ -117,13 +115,9 @@ Item { // Wrapper
         radius: searchBar.height / 2 + searchBar.verticalPadding
         color: Appearance.colors.colBackgroundSurfaceContainer
 
-        // Animate height only for interactive typing (app/web/math search). Emoji and
-        // clipboard open with a full result set already present, so animating the panel
-        // expanding from the searchbar up to full — while delegates realize — just looks
-        // janky. Show those at final size directly; the grid/list inside is lazy anyway.
         Behavior on implicitHeight {
             id: searchHeightBehavior
-            enabled: GlobalStates.overviewOpen && root.showResults && !root.emojiMode && !root.clipboardMode
+            enabled: GlobalStates.overviewOpen && root.showResults
             animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
         }
 
