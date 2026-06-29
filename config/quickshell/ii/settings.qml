@@ -42,6 +42,24 @@ ApplicationWindow {
             icon: "bluetooth",
             component: "modules/settings/BluetoothConfig.qml"
         },
+        {
+            section: Translation.tr("System"),
+            name: Translation.tr("Display"),
+            icon: "brightness_6",
+            component: "modules/settings/DisplayConfig.qml"
+        },
+        {
+            section: Translation.tr("System"),
+            name: Translation.tr("Sound"),
+            icon: "volume_up",
+            component: "modules/settings/SoundConfig.qml"
+        },
+        {
+            section: Translation.tr("System"),
+            name: Translation.tr("Power"),
+            icon: "power_settings_new",
+            component: "modules/settings/PowerConfig.qml"
+        },
         // --- Customization ---
         {
             section: Translation.tr("Customization"),
