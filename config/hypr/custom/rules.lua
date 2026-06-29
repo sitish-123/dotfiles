@@ -4,6 +4,11 @@
 -- window (text included) translucent instead.
 
 -- AI panel (replaces the left sidebar): Gemini/ChatGPT/Claude chromium --app windows
--- live on the "ai" special workspace, where ai-sidebar.sh groups them into a tab group.
--- SUPER+A toggles the workspace. Kept tiled (not floating) so Hyprland can tab them.
-hl.window_rule({ match = { class = "^(Gemini|ChatGPT|Claude)$" }, workspace = "special:ai" })
+-- FLOAT, docked to the left edge, stacked at the same spot on the "ai" special workspace.
+-- A Quickshell pill bar (modules/ii/aiPanel) sits in the top strip (~52px) and raises the
+-- chosen one. SUPER+A toggles the workspace (shows the panel + pills together).
+local ai_match = { class = "^(Gemini|ChatGPT|Claude)$" }
+hl.window_rule({ match = ai_match, workspace = "special:ai" })
+hl.window_rule({ match = ai_match, float = true })
+hl.window_rule({ match = ai_match, size = {"(monitor_w*0.32)", "(monitor_h-72)"} })
+hl.window_rule({ match = ai_match, move = {12, 64} })

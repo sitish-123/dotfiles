@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 
 import qs.modules.common
+import qs.modules.ii.aiPanel
 import qs.modules.ii.background
 import qs.modules.ii.bar
 import qs.modules.ii.cheatsheet
@@ -25,6 +26,7 @@ import qs.modules.ii.wallpaperSelector
 
 Scope {
     PanelLoader { extraCondition: !Config.options.bar.vertical; component: Bar {} }
+    PanelLoader { component: AiPanel {} } // pill switcher for the AI panel (left-sidebar replacement)
     PanelLoader { component: Background {} }
     PanelLoader { component: Cheatsheet {} }
     PanelLoader { extraCondition: Config.options.dock.enable; component: Dock {} }

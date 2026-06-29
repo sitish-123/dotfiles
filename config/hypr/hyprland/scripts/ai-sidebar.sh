@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# AI panel — replaces the old left sidebar. Gemini + ChatGPT + Claude as clean
-# chromium --app windows (your normal web login, NO API key), grouped into a native
-# Hyprland tab group on the special workspace "ai". SUPER+A toggles it like a sidebar.
-# First invocation launches + groups the three; later ones just show/hide the panel.
+# AI panel — replaces the old left sidebar. Gemini + ChatGPT + Claude as clean chromium
+# --app windows (your normal web login, NO API key), floating + docked to the left edge,
+# stacked on the "ai" special workspace. A Quickshell pill bar (modules/ii/aiPanel) sits
+# on top and raises the chosen one. SUPER+A toggles the panel; first run launches the three.
 set -uo pipefail
 
 URLS=("https://gemini.google.com/app" "https://chatgpt.com/" "https://claude.ai/new")
@@ -30,17 +30,7 @@ for i in 0 1 2; do
     "$BROWSER" --app="${URLS[$i]}" --class="${CLASSES[$i]}" --name="${CLASSES[$i]}" >/dev/null 2>&1 &
 done
 
-# Wait for all three to map (window rule sends them to special:ai, tiled).
+# Wait for all three to map (window rule floats + docks them on special:ai), then raise
+# Gemini as the default-visible one (they're stacked at the same spot).
 for _ in $(seq 1 60); do [ "$(ai_count)" -ge 3 ] && break; sleep 0.2; done
-
-# Group them into one tabbed Hyprland group: make the first a group, fold the rest in.
-mapfile -t ADDRS < <(hyprctl clients -j | jq -r '.[] | select(.class=="Gemini" or .class=="ChatGPT" or .class=="Claude") | .address')
-if [ "${#ADDRS[@]}" -ge 2 ]; then
-    hyprctl dispatch focuswindow "address:${ADDRS[0]}" >/dev/null 2>&1
-    hyprctl dispatch togglegroup >/dev/null 2>&1
-    for a in "${ADDRS[@]:1}"; do
-        hyprctl dispatch focuswindow "address:$a" >/dev/null 2>&1
-        hyprctl dispatch moveintogroup l >/dev/null 2>&1
-    done
-    hyprctl dispatch focuswindow "address:${ADDRS[0]}" >/dev/null 2>&1
-fi
+hyprctl dispatch focuswindow "class:^(Gemini)$" >/dev/null 2>&1 || true
