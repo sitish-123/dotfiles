@@ -417,7 +417,7 @@
             "valueScroll": true,
             "visualize": false
         },
-        "keepRightSidebarLoaded": false,
+        "keepRightSidebarLoaded": true,
         "quickSliders": {
             "enable": true,
             "showBrightness": true,
