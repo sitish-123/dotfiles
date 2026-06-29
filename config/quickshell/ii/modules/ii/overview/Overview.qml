@@ -35,11 +35,11 @@ Scope {
             item: GlobalStates.overviewOpen ? columnLayout : null
         }
 
+        // Size the window to its content (top-centered) instead of fullscreen, so
+        // HyprlandFocusGrab has an "outside" to detect — clicking away now dismisses
+        // it (a fullscreen window has no outside, which is why tap-to-close failed).
         anchors {
             top: true
-            bottom: true
-            left: true
-            right: true
         }
 
         Connections {
@@ -98,7 +98,11 @@ Scope {
             Loader {
                 id: overviewLoader
                 anchors.horizontalCenter: parent.horizontalCenter
+                // Only build the workspace grid (live window thumbnails are heavy) when
+                // it'll actually be shown — NOT for clipboard/emoji/launcher search,
+                // which would otherwise spin up ScreencopyView thumbnails for nothing.
                 active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
+                    && panelWindow.searchingText == "" && !overviewScope.launcherMode
                 sourceComponent: OverviewWidget {
                     screen: panelWindow.screen
                     visible: (panelWindow.searchingText == "" && !overviewScope.launcherMode)

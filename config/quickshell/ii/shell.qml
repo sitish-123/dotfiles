@@ -31,6 +31,7 @@ ShellRoot {
         Cliphist.refresh()
         Wallpapers.load()
         Updates.load()
+        Emojis.load() // preload emoji data so the first Super+. isn't slow
     }
 
 
