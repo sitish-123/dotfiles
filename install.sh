@@ -322,6 +322,11 @@ if ask_yes "Symlink configs into $CONFIG_HOME (existing real configs are backed 
             [ -f "$f" ] && sed -i "s|/home/sitish|$HOME|g" "$f"
         done
     fi
+
+    # AI app launchers: Gemini + ChatGPT as chromium PWAs, Claude Code in a terminal.
+    # Self-built (no third-party packages), idempotent. Needs a Chromium-based browser
+    # for the PWAs (the optional 'browser' group's chromium); skips them otherwise.
+    bash "$DOT_ROOT/bootstrap/webapps/setup-webapps.sh" || warn "AI app launcher setup had issues"
 fi
 
 # 4) Plugins + fork build ----------------------------------------------------
