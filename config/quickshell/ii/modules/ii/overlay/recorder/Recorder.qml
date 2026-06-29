@@ -13,6 +13,21 @@ StyledOverlayWidget {
     minimumWidth: 310
     minimumHeight: 130
 
+    // Capture (grim / region freeze / recorder) grabs the whole screen including
+    // this panel. Close it first, then act once it's fully gone, so the overlay
+    // never ends up in the screenshot/recording.
+    Timer {
+        id: actionTimer
+        interval: 320
+        property var pending: null
+        onTriggered: { if (pending) { pending(); pending = null; } }
+    }
+    function runAfterClose(fn) {
+        GlobalStates.overlayOpen = false;
+        actionTimer.pending = fn;
+        actionTimer.restart();
+    }
+
     contentItem: OverlayBackground {
         id: contentItem
         radius: root.contentRadius
@@ -29,37 +44,25 @@ StyledOverlayWidget {
                 BigRecorderButton {
                     materialSymbol: "screenshot_region"
                     name: "Screenshot region"
-                    onClicked: {
-                        GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "screenshot"]);
-                    }
+                    onClicked: root.runAfterClose(() => Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "screenshot"]))
                 }
 
                 BigRecorderButton {
                     materialSymbol: "photo_camera"
                     name: "Screenshot"
-                    onClicked: {
-                        GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached(["bash", "-c", "grim - | wl-copy"]);
-                    }
+                    onClicked: root.runAfterClose(() => Quickshell.execDetached(["bash", "-c", "grim - | wl-copy"]))
                 }
 
                 BigRecorderButton {
                     materialSymbol: "screen_record"
                     name: "Record region"
-                    onClicked: {
-                        GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "recordWithSound"]);
-                    }
+                    onClicked: root.runAfterClose(() => Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "recordWithSound"]))
                 }
-                
+
                 BigRecorderButton {
                     materialSymbol: "capture"
                     name: "Record screen"
-                    onClicked: {
-                        GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--audio", Config.options.screenRecord.audio]);
-                    }
+                    onClicked: root.runAfterClose(() => Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--audio", Config.options.screenRecord.audio]))
                 }
             }
 

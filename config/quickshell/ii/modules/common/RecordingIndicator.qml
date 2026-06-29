@@ -11,7 +11,11 @@ import qs.modules.common.widgets
 // Click the buttons to pause/resume, save the replay, or stop.
 PanelWindow {
     id: root
-    visible: Recording.anyActive
+    // Hidden during full-screen/replay capture (it would record itself); shown for
+    // region recordings where it sits outside the captured area. Configurable.
+    readonly property string mode: Config.options.screenRecord.indicator
+    visible: Recording.anyActive && mode !== "never"
+        && (mode === "always" || Recording.scope === "region")
     color: "transparent"
     WlrLayershell.namespace: "quickshell:recordingIndicator"
     WlrLayershell.layer: WlrLayer.Overlay

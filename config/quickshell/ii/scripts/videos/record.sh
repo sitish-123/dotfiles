@@ -29,6 +29,7 @@ STARTED_FILE="$STATE_DIR/started"   # epoch recording/replay began
 MODE_FILE="$STATE_DIR/mode"         # "record" | "replay"
 PAUSED_FILE="$STATE_DIR/paused"     # present while paused
 PIDFILE="$STATE_DIR/pid"            # PID of the running gpu-screen-recorder
+SCOPE_FILE="$STATE_DIR/scope"       # "fullscreen" | "region" | "replay" (drives the indicator)
 mkdir -p "$STATE_DIR"
 
 notify() { notify-send -a 'Recorder' "$1" "${2:-}" & disown; }
@@ -39,7 +40,7 @@ focused_monitor() { hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focus
 # ("gpu-screen-reco"), so `pgrep -x gpu-screen-recorder` never matches.
 rec_pid() { cat "$PIDFILE" 2>/dev/null; }
 running() { local p; p="$(rec_pid)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
-cleanup_state() { rm -f "$STARTED_FILE" "$MODE_FILE" "$PAUSED_FILE" "$PIDFILE"; }
+cleanup_state() { rm -f "$STARTED_FILE" "$MODE_FILE" "$PAUSED_FILE" "$PIDFILE" "$SCOPE_FILE"; }
 
 if ! command -v "$REC_BIN" >/dev/null; then
     notify "Recorder unavailable" "Install gpu-screen-recorder (see packages.txt)"
@@ -114,10 +115,12 @@ mkdir -p "$SAVE_PATH"
 
 # --- capture target ---------------------------------------------------------
 TARGET=()
+SCOPE="fullscreen"
 if [[ -n "$REGION" ]]; then
     # slurp gives "X,Y WxH" -> gpu-screen-recorder wants "WxH+X+Y"
     xy="${REGION%% *}"; wh="${REGION##* }"
     TARGET=(-w region -region "${wh}+${xy/,/+}")
+    SCOPE="region"
 else
     mon="$(focused_monitor)"; [ -z "$mon" ] && mon="screen"
     TARGET=(-w "$mon")
@@ -140,6 +143,7 @@ if [[ "$ACTION" == "record" && $FULLSCREEN -eq 0 && -z "$REGION" ]]; then
     if region="$(slurp 2>/dev/null)"; then
         xy="${region%% *}"; wh="${region##* }"
         TARGET=(-w region -region "${wh}+${xy/,/+}")
+        SCOPE="region"
     else
         notify "Recording cancelled" "Selection cancelled"; exit 1
     fi
@@ -150,8 +154,10 @@ ENC=(-f "$FPS" -q "$QUALITY" -k "$VCODEC" -ac "$ACODEC")
 # shellcheck disable=SC2206
 [ -n "$EXTRA" ] && ENC+=($EXTRA)
 
+[[ "$ACTION" == "replay" ]] && SCOPE="replay"
 trap cleanup_state EXIT
 date +%s > "$STARTED_FILE"
+echo "$SCOPE" > "$SCOPE_FILE"
 
 # Run gpu-screen-recorder in the background so we can record its exact PID
 # (for stop/pause/save signals), then wait on it. The EXIT trap clears state.

@@ -556,6 +556,11 @@ Singleton {
                 property string audioCodec: "opus"  // gpu-screen-recorder -ac: opus|aac|flac
                 property string extension: "mp4"    // container/extension
                 property int replayDuration: 30      // replay-buffer length in seconds
+                // On-screen REC pill. Full-screen capture would record the pill itself,
+                // so "smart" shows it only for region recordings (where it sits outside
+                // the captured area). "always" = show even in fullscreen (it'll be in the
+                // video); "never" = rely on notifications + keybinds only.
+                property string indicator: "smart"   // smart | always | never
                 property string micSource: ""        // "" = default_input
                 property string systemSource: ""     // "" = default_output
                 property string extraArgs: ""        // extra gpu-screen-recorder args

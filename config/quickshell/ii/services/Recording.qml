@@ -14,6 +14,7 @@ Singleton {
     property bool active: false    // a normal recording is in progress
     property bool replay: false    // the replay buffer is armed
     property bool paused: false
+    property string scope: ""      // "fullscreen" | "region" | "replay" (what's being captured)
     property double startEpoch: 0
     property int elapsed: 0         // seconds since start
     readonly property bool anyActive: active || replay
@@ -34,14 +35,14 @@ Singleton {
         command: ["bash", "-c",
             'd="${XDG_RUNTIME_DIR:-/tmp}/ii-recorder"; p="$(cat "$d/pid" 2>/dev/null)"; ' +
             'if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then ' +
-            '  printf "on %s %s %s" "$(cat "$d/mode" 2>/dev/null)" "$(cat "$d/started" 2>/dev/null)" "$([ -f "$d/paused" ] && echo 1 || echo 0)"; ' +
+            '  printf "on %s %s %s %s" "$(cat "$d/mode" 2>/dev/null)" "$(cat "$d/started" 2>/dev/null)" "$([ -f "$d/paused" ] && echo 1 || echo 0)" "$(cat "$d/scope" 2>/dev/null)"; ' +
             'else printf off; fi']
         stdout: StdioCollector {
             onStreamFinished: {
                 const parts = text.trim().split(/\s+/);
                 if (parts[0] !== "on") {
                     root.active = false; root.replay = false; root.paused = false;
-                    root.startEpoch = 0; root.elapsed = 0;
+                    root.scope = ""; root.startEpoch = 0; root.elapsed = 0;
                     return;
                 }
                 const mode = parts[1] || "record";
@@ -49,6 +50,7 @@ Singleton {
                 root.active = (mode !== "replay");
                 root.startEpoch = parseInt(parts[2]) || root.nowSec();
                 root.paused = (parts[3] === "1");
+                root.scope = parts[4] || "fullscreen";
                 root.elapsed = Math.max(0, root.nowSec() - root.startEpoch);
             }
         }
