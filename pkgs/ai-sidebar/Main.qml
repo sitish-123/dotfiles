@@ -47,13 +47,9 @@ Window {
         offTheRecord: false
     }
 
-    Rectangle {                          // floating, inset, rounded, translucent panel
-        id: panel
+    Rectangle {                          // rounded translucent panel; the SURFACE is already
+        id: panel                        // inset by C++ margins (main.cpp) so this floats
         anchors.fill: parent
-        anchors.leftMargin: 10
-        anchors.topMargin: 10
-        anchors.rightMargin: 10
-        anchors.bottomMargin: 60         // clear the bottom ii bar
         radius: 18
         color: Qt.rgba(0.07, 0.07, 0.09, 0.55)   // translucent -> Hyprland blur frosts it
         border.width: 1

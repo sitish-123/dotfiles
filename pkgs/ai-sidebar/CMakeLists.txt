@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 WebEngineQuick Gui Network)
+find_package(LayerShellQt REQUIRED)
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(ai-sidebar main.cpp)
@@ -20,6 +21,7 @@ target_link_libraries(ai-sidebar PRIVATE
     Qt6::WebEngineQuick
     Qt6::Gui
     Qt6::Network
+    LayerShellQt::Interface
 )
 
 install(TARGETS ai-sidebar RUNTIME DESTINATION bin)

@@ -9,6 +9,9 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QObject>
+#include <QWindow>
+#include <QMargins>
+#include <LayerShellQt/Window>
 
 class Controller : public QObject {
     Q_OBJECT
@@ -61,6 +64,13 @@ int main(int argc, char *argv[]) {
     engine.loadFromModule("aisidebar", "Main");
     if (engine.rootObjects().isEmpty())
         return -1;
+
+    // Inset the layer SURFACE itself so the panel floats (gaps on left/top + above the
+    // bottom bar), instead of stretching edge-to-edge. QMargins(left, top, right, bottom).
+    if (auto *qw = qobject_cast<QWindow *>(engine.rootObjects().constFirst())) {
+        if (auto *ls = LayerShellQt::Window::get(qw))
+            ls->setMargins(QMargins(12, 12, 0, 64));
+    }
     return app.exec();
 }
 
