@@ -86,7 +86,9 @@ Scope { // Scope
         
         sourceComponent: PanelWindow { // Window
             id: panelWindow
-            visible: GlobalStates.sidebarLeftOpen
+            // The left sidebar is entirely AI (chat) + weeb (anime). Hidden when AI is
+            // disabled (policies.ai === 0) so the master AI toggle kills it.
+            visible: GlobalStates.sidebarLeftOpen && (Config.options?.policies.ai ?? 0) !== 0
             
             property bool extend: false
             property real sidebarWidth: panelWindow.extend ? Appearance.sizes.sidebarWidthExtended : Appearance.sizes.sidebarWidth

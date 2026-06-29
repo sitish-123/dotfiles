@@ -10,6 +10,7 @@ ContentPage {
     ContentSection {
         icon: "neurology"
         title: Translation.tr("AI")
+        visible: (Config.options?.policies.ai ?? 0) !== 0  // hidden when AI is disabled
 
         MaterialTextArea {
             Layout.fillWidth: true

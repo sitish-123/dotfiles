@@ -207,6 +207,9 @@ ContentPage {
                     currentValue: Config.options.policies.ai
                     onSelected: newValue => {
                         Config.options.policies.ai = newValue;
+                        // Master AI switch: off also disables weeb + hides the AI left
+                        // sidebar and the AI/weeb settings sections.
+                        if (newValue === 0) Config.options.policies.weeb = 0;
                     }
                     options: [
                         {
@@ -228,8 +231,9 @@ ContentPage {
                 }
             }
 
-            // Weeb policy
+            // Weeb policy — only relevant when AI is enabled
             ColumnLayout {
+                visible: (Config.options?.policies.ai ?? 0) !== 0
 
                 ContentSubsectionLabel {
                     text: Translation.tr("Weeb")
