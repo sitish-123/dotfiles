@@ -10,6 +10,7 @@ import Quickshell
 WindowDialog {
     id: root
     backgroundHeight: 600
+    backgroundWidth: 400
 
     // Scan on open so the list is fresh, then keep refreshing while open.
     Component.onCompleted: if (Network.wifiEnabled) Network.rescanWifi()
