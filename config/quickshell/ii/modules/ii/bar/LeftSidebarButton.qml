@@ -21,9 +21,9 @@ RippleButton {
     colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
     colRippleToggled: Appearance.colors.colSecondaryContainerActive
 
-    // Opens the AI panel (Gemini/ChatGPT/Claude tab group) — same script as SUPER+A.
+    // Toggles the native AI sidebar (layer-shell Gemini/ChatGPT/Claude) — same as SUPER+A.
     onPressed: {
-        Quickshell.execDetached(["bash", "-lc", "~/.config/hypr/hyprland/scripts/ai-sidebar.sh"]);
+        Quickshell.execDetached(["bash", "-lc", "~/.local/bin/ai-sidebar"]);
     }
 
     CustomIcon {

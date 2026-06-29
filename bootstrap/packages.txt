@@ -88,3 +88,10 @@ imagemagick
 # `zbarcam` — Wi-Fi QR scanner in the sidebar (WifiDialog.qml) decodes a Wi-Fi QR from
 # the webcam and connects. Provides zbarcam/zbarimg.
 zbar
+
+# --- AI sidebar (pkgs/ai-sidebar) — native Qt6 layer-shell panel embedding the
+# logged-in Gemini/ChatGPT/Claude web apps (Chromium engine, so web login works).
+# Built by bootstrap/build-ai-sidebar.sh into ~/.local/bin. ---
+qt6-webengine
+layer-shell-qt
+ninja

@@ -334,6 +334,10 @@ if ask_yes "Build Hyprland plugins + the hyprtasking fork?"; then
     bash "$DOT_ROOT/bootstrap/plugins.sh" || warn "plugin setup had issues"
 fi
 
+# 4b) Native AI sidebar (Qt6 + WebEngine + LayerShellQt) -> ~/.local/bin/ai-sidebar.
+chmod +x "$DOT_ROOT/bootstrap/build-ai-sidebar.sh" 2>/dev/null
+bash "$DOT_ROOT/bootstrap/build-ai-sidebar.sh" || warn "ai-sidebar build had issues"
+
 # 5) System-level tweaks (network/keyring/etc). Idempotent. Skipped with --no-system.
 if [ "$WANT_SYSTEM" -eq 1 ] && ask_yes "Apply system tweaks (network/keyring/bluetooth — needs sudo)?"; then
     info "Applying system tweaks (network/keyring) — re-run safe"
