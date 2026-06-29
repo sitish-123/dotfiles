@@ -11,6 +11,16 @@ WindowDialog {
     id: root
     backgroundHeight: 600
 
+    // Scan immediately on open so the list is fresh (it used to show a stale list),
+    // then keep refreshing while open so signal/new APs stay in sync.
+    Component.onCompleted: Network.rescanWifi()
+    Timer {
+        interval: 6000
+        running: true
+        repeat: true
+        onTriggered: Network.rescanWifi()
+    }
+
     WindowDialogTitle {
         text: Translation.tr("Connect to Wi-Fi")
     }

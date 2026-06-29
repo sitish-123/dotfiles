@@ -50,6 +50,31 @@ DialogListItem {
             }
         }
 
+        RowLayout { // Disconnect / Forget controls for the connected network
+            id: activeControls
+            Layout.topMargin: 8
+            Layout.fillWidth: true
+            visible: root.wifiNetwork?.active ?? false
+            spacing: 8
+
+            Item { Layout.fillWidth: true }
+
+            DialogButton {
+                buttonText: Translation.tr("Forget")
+                colBackground: Appearance.colors.colLayer4
+                colBackgroundHover: Appearance.colors.colLayer4Hover
+                colRipple: Appearance.colors.colLayer4Active
+                onClicked: {
+                    if (root.wifiNetwork?.ssid)
+                        Network.forgetWifiNetwork(root.wifiNetwork.ssid);
+                }
+            }
+            DialogButton {
+                buttonText: Translation.tr("Disconnect")
+                onClicked: Network.disconnectWifiNetwork()
+            }
+        }
+
         ColumnLayout { // Password
             id: passwordPrompt
             Layout.topMargin: 8

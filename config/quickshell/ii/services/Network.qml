@@ -80,6 +80,25 @@ Singleton {
         if (active) disconnectProc.exec(["nmcli", "connection", "down", active.ssid]);
     }
 
+    // Lightweight AP-list refresh (no rescan) — re-reads current APs/signal so the
+    // open dialog stays in sync. rescanWifi() does the slow NIC rescan for new APs.
+    function refreshNetworks(): void {
+        getNetworks.running = true;
+    }
+
+    // Forget (delete) a saved network profile.
+    function forgetWifiNetwork(ssid: string): void {
+        forgetProc.exec(["nmcli", "connection", "delete", "id", ssid]);
+    }
+
+    Process {
+        id: forgetProc
+        stdout: SplitParser {
+            onRead: getNetworks.running = true
+        }
+        onExited: root.update()
+    }
+
     function openPublicWifiPortal() {
         Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]) // From some StackExchange thread, seems to work
     }
