@@ -249,45 +249,51 @@ ApplicationWindow {
                         }
                     }
 
-                    ColumnLayout { // Grouped tabs (System / Customization) with section labels
+                    StyledFlickable { // Scrollable grouped tabs — the page list can exceed the rail height
+                        id: navFlickable
                         Layout.topMargin: 20
                         Layout.fillWidth: true
-                        spacing: 2
-                        Repeater {
-                            model: root.pages
-                            delegate: ColumnLayout {
-                                required property var index
-                                required property var modelData
-                                readonly property bool sectionStart: index === 0 || root.pages[index - 1].section !== modelData.section
-                                Layout.fillWidth: true
-                                Layout.topMargin: (index > 0 && sectionStart) ? 10 : 0
-                                spacing: 2
+                        Layout.fillHeight: true
+                        clip: true
+                        contentWidth: width
+                        contentHeight: tabsColumn.implicitHeight
 
-                                StyledText {
-                                    visible: navRail.expanded && parent.sectionStart
-                                    Layout.leftMargin: 10
-                                    Layout.bottomMargin: 2
-                                    text: modelData.section ?? ""
-                                    color: Appearance.colors.colSubtext
-                                    font.pixelSize: Appearance.font.pixelSize.smaller
-                                    font.weight: Font.Medium
-                                }
-                                NavigationRailButton {
+                        ColumnLayout { // Grouped tabs (System / Customization) with section labels
+                            id: tabsColumn
+                            width: navFlickable.width
+                            spacing: 2
+                            Repeater {
+                                model: root.pages
+                                delegate: ColumnLayout {
+                                    required property var index
+                                    required property var modelData
+                                    readonly property bool sectionStart: index === 0 || root.pages[index - 1].section !== modelData.section
                                     Layout.fillWidth: true
-                                    toggled: root.currentPage === parent.index
-                                    onPressed: root.currentPage = parent.index
-                                    expanded: navRail.expanded
-                                    buttonIcon: modelData.icon
-                                    buttonIconRotation: modelData.iconRotation || 0
-                                    buttonText: modelData.name
-                                    showToggledHighlight: true
+                                    Layout.topMargin: (index > 0 && sectionStart) ? 10 : 0
+                                    spacing: 2
+
+                                    StyledText {
+                                        visible: navRail.expanded && parent.sectionStart
+                                        Layout.leftMargin: 10
+                                        Layout.bottomMargin: 2
+                                        text: modelData.section ?? ""
+                                        color: Appearance.colors.colSubtext
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                        font.weight: Font.Medium
+                                    }
+                                    NavigationRailButton {
+                                        Layout.fillWidth: true
+                                        toggled: root.currentPage === parent.index
+                                        onPressed: root.currentPage = parent.index
+                                        expanded: navRail.expanded
+                                        buttonIcon: modelData.icon
+                                        buttonIconRotation: modelData.iconRotation || 0
+                                        buttonText: modelData.name
+                                        showToggledHighlight: true
+                                    }
                                 }
                             }
                         }
-                    }
-
-                    Item {
-                        Layout.fillHeight: true
                     }
                 }
             }

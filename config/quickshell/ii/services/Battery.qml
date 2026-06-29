@@ -100,7 +100,13 @@ Singleton {
     }
 
     onIsPluggedInChanged: {
-        // Usage tracking: reset the on-battery clock + screen-on counter on each unplug.
+        // Only the tracker process touches the persisted clocks, and only on a
+        // GENUINE plug/unplug edge. We compare against the baseline that
+        // reconcileUsage() recorded, so the startup UPower settle (default false →
+        // real value) is never misread as an unplug regardless of signal ordering.
+        if (!root.isTracker || !root.usageReady) return;
+        if (root.isPluggedIn === root._lastPlugged) return;
+        root._lastPlugged = root.isPluggedIn;
         if (root.isPluggedIn) {
             root.onBatterySince = 0;
         } else {
@@ -114,7 +120,7 @@ Singleton {
         Audio.playSystemSound(isPluggedIn ? "power-plug" : "power-unplug");
     }
 
-    onIsFullChanged: if (isFull) { root.lastFullTime = root.nowSec(); root.persistUsage(); }
+    onIsFullChanged: if (isFull && root.isTracker) { root.lastFullTime = root.nowSec(); root.persistUsage(); }
 
     // --- Hardware extras (UPower doesn't expose all) -------------------------
     property int cycleCount: 0
@@ -152,19 +158,88 @@ Singleton {
     Timer { interval: 30000; running: true; repeat: true; onTriggered: sysReadProc.running = true }
 
     // --- Usage tracking (on-battery / screen-on / last full) -----------------
+    // This singleton is imported by several quickshell processes at once (the bar
+    // shell, every Settings window). Only ONE of them may own the persisted
+    // counters — otherwise they overwrite each other's file. We claim an flock;
+    // the holder is the TRACKER (runs the timers, resets on a real unplug, writes
+    // the file). Every other process is a read-only display that just reloads the
+    // tracker's file to show its numbers.
     function nowSec() { return Math.floor(Date.now() / 1000); }
     property double onBatterySince: 0  // epoch when last unplugged (0 = plugged in)
     property double lastFullTime: 0    // epoch when battery last reached full
     property int screenOnSeconds: 0    // awake seconds since last unplug
-    readonly property int onBatterySeconds: onBatterySince > 0 ? Math.max(0, nowSec() - onBatterySince) : 0
+    property int nowTick: 0            // bumped periodically so the values below stay live
+    readonly property int onBatterySeconds: (nowTick, onBatterySince > 0 ? Math.max(0, nowSec() - onBatterySince) : 0)
+    property double lastTick: 0
+    property bool _lastPlugged: false  // plug-state baseline recorded at reconcile (edge detection)
+
+    Timer {
+        interval: 5000; running: true; repeat: true
+        onTriggered: {
+            root.nowTick++;
+            if (!root.isTracker) usageFile.reload();  // readers refresh from the tracker's file
+        }
+    }
+
+    // Single-writer election. flock -n succeeds for exactly one process; that bash
+    // stays alive (echoing TRACKER) until quickshell exits OR its parent dies,
+    // releasing the lock so another process can take over. Losers exit and retry.
+    property bool isTracker: false
+    Process {
+        id: trackerLock
+        running: true
+        command: ["bash", "-c",
+            'exec 9>"${XDG_RUNTIME_DIR:-/tmp}/qs_battery_usage.lock"; ' +
+            'flock -n 9 || exit 1; echo TRACKER; ' +
+            'while kill -0 "$PPID" 2>/dev/null; do sleep 5; done']
+        stdout: SplitParser { onRead: line => { if (line.trim() === "TRACKER") root.isTracker = true } }
+        onExited: (code, status) => { root.isTracker = false; trackerRetryTimer.restart(); }
+    }
+    Timer { id: trackerRetryTimer; interval: 7000; repeat: false; onTriggered: trackerLock.running = true }
+
+    // UPower settle gate. At process start UPower.onBattery defaults to false
+    // (→ "plugged in") and only flips to the real value once D-Bus replies — that
+    // initial flip is NOT a plug/unplug event. We wait for the device to report a
+    // real state (or a timeout) before reconciling, so the settle is never a reset.
+    readonly property bool upowerHasData: UPower.displayDevice.isLaptopBattery
+        && UPower.displayDevice.state !== UPowerDeviceState.Unknown
+    property bool upowerSettled: false
+    onUpowerHasDataChanged: if (upowerHasData) root.upowerSettled = true
+    Timer { interval: 6000; running: true; repeat: false; onTriggered: root.upowerSettled = true }  // fallback
+
+    property bool usageLoaded: false   // persisted JSON has been read (or confirmed absent)
+    property bool usageReady: false    // tracker has reconciled → live transitions are real
+
+    // Tracker-only, once: reconcile persisted state with the now-settled hardware.
+    // - Plugged in  → clock stopped (onBatterySince 0).
+    // - On battery, with a prior record → KEEP it (a reload resumes, never resets).
+    // - On battery, no record (first run / corrupt) → start the clock from now.
+    // lastTick is pinned to now so the time the shell was dead isn't credited.
+    function reconcileUsage() {
+        if (!root.isTracker || !root.usageLoaded || !root.upowerSettled || root.usageReady) return;
+        if (root.isPluggedIn) {
+            root.onBatterySince = 0;
+        } else {
+            if (root.onBatterySince <= 0) {
+                root.onBatterySince = root.nowSec();
+                root.screenOnSeconds = 0;
+            }
+            root.lastTick = root.nowSec();
+        }
+        root._lastPlugged = root.isPluggedIn;  // edge baseline for onIsPluggedInChanged
+        root.usageReady = true;
+        root.persistUsage();
+    }
+    onIsTrackerChanged: reconcileUsage()
+    onUsageLoadedChanged: reconcileUsage()
+    onUpowerSettledChanged: reconcileUsage()
 
     // Screen-on time: only count while a display is actually powered (DPMS on). A
     // closed lid / blanked screen must NOT count. Suspend can't count either (the
     // timer is frozen) — and the per-tick cap stops a resume from dumping in the gap.
-    property double lastTick: 0
     Timer {
         interval: 30000
-        running: !root.isPluggedIn
+        running: root.isTracker && !root.isPluggedIn && root.usageReady
         repeat: true
         onTriggered: dpmsCheckProc.running = true   // check DPMS, then accumulate in onExited
     }
@@ -184,6 +259,7 @@ Singleton {
     }
 
     function persistUsage() {
+        if (!root.isTracker) return;  // readers never write the shared file
         usageFile.setText(JSON.stringify({
             onBatterySince: root.onBatterySince,
             lastFullTime: root.lastFullTime,
@@ -201,7 +277,13 @@ Singleton {
                 root.lastFullTime = d.lastFullTime ?? 0;
                 root.screenOnSeconds = d.screenOnSeconds ?? 0;
             } catch (e) {}
+            root.usageLoaded = true;
+            root.reconcileUsage();
         }
-        onLoadFailed: error => { if (error == FileViewError.FileNotFound) root.persistUsage(); }
+        onLoadFailed: error => {
+            if (error == FileViewError.FileNotFound && root.isTracker) root.persistUsage();
+            root.usageLoaded = true;
+            root.reconcileUsage();
+        }
     }
 }

@@ -12,8 +12,17 @@ WindowDialog {
     backgroundHeight: 600
     backgroundWidth: 400
 
-    // Scan on open so the list is fresh, then keep refreshing while open.
-    Component.onCompleted: if (Network.wifiEnabled) Network.rescanWifi()
+    // Scan on open so the list is fresh, then keep refreshing while open. Show the
+    // cached list instantly; don't gate the open-scan on wifiEnabled (not yet known
+    // in a cold process) — also rescan the instant wifi is reported enabled.
+    Component.onCompleted: {
+        Network.refreshNetworks();
+        if (Network.wifiEnabled) Network.rescanWifi();
+    }
+    Connections {
+        target: Network
+        function onWifiEnabledChanged() { if (Network.wifiEnabled) Network.rescanWifi(); }
+    }
     Timer {
         interval: 6000
         running: Network.wifiEnabled
