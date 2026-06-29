@@ -28,9 +28,20 @@ info "Updating hyprpm headers"
 hyprpm update || warn "hyprpm update reported issues (continuing)"
 
 # Optional niri-style carousel overview (community plugin).
+SCROLL_URL="https://github.com/yayuuu/hyprland-scroll-overview.git"
 if ! hyprpm list 2>/dev/null | grep -qi scrolloverview; then
     info "Adding scrolloverview"
-    hyprpm add https://github.com/yayuuu/hyprland-scroll-overview.git || warn "scrolloverview add failed"
+    if ! hyprpm add "$SCROLL_URL"; then
+        # "Headers outdated" immediately after a successful `hyprpm update` is a known
+        # hyprpm hiccup (the add re-checks headers against the *running* compositor). A
+        # forced header rebuild + one retry clears it. If hyprpm can't reach a running
+        # Hyprland at all (fresh install, not yet logged in), this still won't take —
+        # tell the user to finish it from inside a session.
+        warn "scrolloverview add failed — forcing header rebuild and retrying"
+        hyprpm update -f || true
+        hyprpm add "$SCROLL_URL" || \
+            warn "scrolloverview still not added — from inside a Hyprland session run: hyprpm update -f && hyprpm add $SCROLL_URL"
+    fi
 fi
 
 # Build our hyprtasking fork (adaptive grid + the rest).
