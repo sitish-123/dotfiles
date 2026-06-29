@@ -49,7 +49,13 @@ Variants {
             return enabled && sensitiveWallpaper && sensitiveNetwork;
         }
         readonly property real parallaxRation: Config.options.background.parallax.workspaceZoom
-        property real minSuitableScale: 1 // Some reasonable init, to be updated
+        // Cover scale: smallest scale that still fills the surface on both axes. A BINDING
+        // (not a one-shot value set in the magick callback) so it recomputes whenever the
+        // surface size changes — e.g. the monitor scale settling after login, or a
+        // resolution/scale change. The old imperative version was computed once against the
+        // preliminary screen size and went stale -> wallpaper shrunk with black borders.
+        property real minSuitableScale: Math.max(bgRoot.width / Math.max(1, wallpaperWidth),
+                                                  bgRoot.height / Math.max(1, wallpaperHeight))
         property real effectiveWallpaperScale: minSuitableScale * parallaxRation
         property int wallpaperWidth: modelData.width // Some reasonable init value, to be updated
         property int wallpaperHeight: modelData.height // Some reasonable init value, to be updated
@@ -116,15 +122,10 @@ Variants {
                 onStreamFinished: {
                     const output = wallpaperSizeOutputCollector.text;
                     const [width, height] = output.split(" ").map(Number);
-                    const [screenWidth, screenHeight] = [bgRoot.width, bgRoot.height];
+                    // Only feed the image dimensions; minSuitableScale is a binding above
+                    // that derives the cover scale from these + the live surface size.
                     bgRoot.wallpaperWidth = width;
                     bgRoot.wallpaperHeight = height;
-
-                    // Perfect image; scale = 1
-                    // Small picture; scale > 1; will zoom in the picture
-                    // Big picture; scale < 1; will zoom out the picture
-                    // Choose max number so every side will fit
-                    bgRoot.minSuitableScale = Math.max(screenWidth / width, screenHeight / height);
                 }
             }
         }
