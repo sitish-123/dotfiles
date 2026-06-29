@@ -28,10 +28,22 @@ ShellRoot {
         Hyprsunset.load()
         FirstRunExperience.load()
         ConflictKiller.load()
-        Cliphist.refresh()
         Wallpapers.load()
         Updates.load()
-        Emojis.load() // preload emoji data so the first Super+. isn't slow
+        deferredPreload.start()
+    }
+
+    // Heavy data preloads (cliphist process + 92KB emoji parse) are pushed off the
+    // reload-critical path. Running them inside onCompleted made every config reload
+    // freeze the shell for longer; here they run once the UI is back up and responsive.
+    Timer {
+        id: deferredPreload
+        interval: 2000
+        repeat: false
+        onTriggered: {
+            Cliphist.refresh()
+            Emojis.load() // preload emoji data so the first Super+. isn't slow
+        }
     }
 
 

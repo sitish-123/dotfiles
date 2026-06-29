@@ -164,6 +164,13 @@ Singleton {
         }
     }
 
+    // Cap how many app results we build QObjects for. The view only ever shows
+    // ~15, but fuzzyQuery returns ALL ~366 installed apps (all: true). Building a
+    // LauncherSearchResult (+ one per app action) for every one of them on every
+    // keystroke pegged the CPU and starved the render thread, making the search
+    // pill wobble while typing. Same fix the emoji path already got (EMOJI_LIMIT).
+    readonly property int maxAppResults: 25
+
     property list<var> results: {
         // Search results are handled here
         ////////////////// Skip? //////////////////
@@ -289,7 +296,7 @@ Singleton {
                 Quickshell.clipboardText = root.mathResult;
             }
         });
-        const appResultObjects = AppSearch.fuzzyQuery(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.app)).map(entry => {
+        const appResultObjects = AppSearch.fuzzyQuery(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.app)).slice(0, root.maxAppResults).map(entry => {
             return resultComp.createObject(null, {
                 type: Translation.tr("App"),
                 id: entry.id,

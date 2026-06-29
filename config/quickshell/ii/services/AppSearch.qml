@@ -40,13 +40,17 @@ Singleton {
         }
     ]
 
-    // Deduped list to fix double icons
-    readonly property list<DesktopEntry> list: Array.from(DesktopEntries.applications.values)
-        .filter((app, index, self) => 
-            index === self.findIndex((t) => (
-                t.id === app.id
-            ))
-    )
+    // Deduped list to fix double icons (O(n) via a seen-set instead of O(n²) findIndex)
+    readonly property list<DesktopEntry> list: {
+        const seen = {};
+        const out = [];
+        for (const app of DesktopEntries.applications.values) {
+            if (seen[app.id]) continue;
+            seen[app.id] = true;
+            out.push(app);
+        }
+        return out;
+    }
     
     readonly property var preppedNames: list.map(a => ({
         name: Fuzzy.prepare(`${a.name} `),
@@ -95,9 +99,22 @@ Singleton {
         return str.toLowerCase().replace(/_/g, "-");
     }
 
+    // Memoize icon guesses per class string. guessIcon is expensive (many iconExists
+    // probes + up to two fuzzy searches on a miss) and is called from reactive bindings
+    // with the same handful of window classes over and over as windows churn.
+    property var iconCache: ({})
+    onListChanged: iconCache = ({}) // installed apps changed -> drop stale guesses
+
     function guessIcon(str) {
         if (!str || str.length == 0) return "image-missing";
+        const cached = root.iconCache[str];
+        if (cached !== undefined) return cached;
+        const result = guessIconUncached(str);
+        root.iconCache[str] = result;
+        return result;
+    }
 
+    function guessIconUncached(str) {
         // Quickshell's desktop entry lookup
         const entry = DesktopEntries.byId(str);
         if (entry) return entry.icon;

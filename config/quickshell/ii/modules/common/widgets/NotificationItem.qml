@@ -214,14 +214,9 @@ Item { // Notification item area
                     implicitWidth: actionsFlickable.implicitWidth
                     implicitHeight: actionsFlickable.implicitHeight
 
-                    layer.enabled: true
-                    layer.effect: OpacityMask {
-                        maskSource: Rectangle {
-                            width: actionsFlickable.width
-                            height: actionsFlickable.height
-                            radius: Appearance.rounding.small
-                        }
-                    }
+                    // clip instead of a per-frame OpacityMask FBO; the action row's small
+                    // rounding with padded buttons reads the same under rectangular clipping.
+                    clip: true
 
                     ScrollEdgeFade {
                         target: actionsFlickable

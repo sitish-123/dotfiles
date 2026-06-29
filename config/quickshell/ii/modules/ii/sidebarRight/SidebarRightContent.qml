@@ -268,8 +268,15 @@ Item {
                 toggled: false
                 buttonIcon: "restart_alt"
                 onClicked: {
-                    Quickshell.execDetached(["hyprctl", "reload"])
-                    Quickshell.reload(true);
+                    // Close the sidebar (and clear focus grab) BEFORE reloading — otherwise
+                    // the shell reloads with the sidebar still open and the dismiss/focus-grab
+                    // machinery doesn't survive the reload, leaving it stuck open & unclickable.
+                    GlobalStates.sidebarRightOpen = false;
+                    GlobalFocusGrab.dismiss();
+                    Qt.callLater(() => {
+                        Quickshell.execDetached(["hyprctl", "reload"]);
+                        Quickshell.reload(true);
+                    });
                 }
                 StyledToolTip {
                     text: Translation.tr("Reload Hyprland & Quickshell")

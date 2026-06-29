@@ -29,14 +29,10 @@ Item {
 
     Layout.fillWidth: true
     implicitHeight: collapsed ? header.implicitHeight : columnLayout.implicitHeight
-    layer.enabled: true
-    layer.effect: OpacityMask {
-        maskSource: Rectangle {
-            width: root.width
-            height: root.height
-            radius: thinkBlockBackgroundRounding
-        }
-    }
+    // clip instead of a per-frame OpacityMask FBO (re-rendered every frame of the
+    // collapse animation). The rounded background is drawn by a child rectangle; padded
+    // content doesn't reach the corners, so rectangular clipping is visually equivalent.
+    clip: true
 
     Behavior on implicitHeight {
         enabled: root.completed ?? false

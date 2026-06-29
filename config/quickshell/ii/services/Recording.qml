@@ -56,7 +56,10 @@ Singleton {
         }
     }
     Timer {
-        interval: 1000; running: true; repeat: true
+        // 1s while recording (the elapsed counter needs it); back off to 3s when idle —
+        // then we're only polling to notice a recording started, which isn't urgent.
+        interval: root.anyActive ? 1000 : 3000
+        running: true; repeat: true
         onTriggered: {
             if (root.anyActive && !root.paused)
                 root.elapsed = Math.max(0, root.nowSec() - root.startEpoch);

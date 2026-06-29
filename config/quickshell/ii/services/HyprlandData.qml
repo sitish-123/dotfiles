@@ -21,6 +21,7 @@ Singleton {
     property var activeWorkspace: null
     property var monitors: []
     property var layers: ({})
+    property var biggestWindowByWorkspace: ({})
 
     // Convenient stuff
 
@@ -70,6 +71,36 @@ Singleton {
         updateWorkspaces();
     }
 
+    // Coalesce bursts of Hyprland events onto a single deferred refresh. Without this,
+    // EVERY raw event — including windowtitlev2, which terminals fire continuously as
+    // their title changes — spawned 5 hyprctl subprocesses + 5 main-thread JSON parses,
+    // freezing the whole shell. We now debounce, and only refetch the categories an
+    // event can actually affect.
+    property bool _pendingWindows: false
+    property bool _pendingWorkspaces: false
+    property bool _pendingMonitors: false
+    property bool _pendingLayers: false
+
+    function scheduleUpdate(windows, workspaces, monitors, layers) {
+        if (windows) root._pendingWindows = true;
+        if (workspaces) root._pendingWorkspaces = true;
+        if (monitors) root._pendingMonitors = true;
+        if (layers) root._pendingLayers = true;
+        updateDebounce.restart();
+    }
+
+    Timer {
+        id: updateDebounce
+        interval: 80
+        repeat: false
+        onTriggered: {
+            if (root._pendingWindows) { root.updateWindowList(); root._pendingWindows = false; }
+            if (root._pendingWorkspaces) { root.updateWorkspaces(); root._pendingWorkspaces = false; }
+            if (root._pendingMonitors) { root.updateMonitors(); root._pendingMonitors = false; }
+            if (root._pendingLayers) { root.updateLayers(); root._pendingLayers = false; }
+        }
+    }
+
     function biggestWindowForWorkspace(workspaceId) {
         const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId);
         return windowsInThisWorkspace.reduce((maxWin, win) => {
@@ -88,8 +119,17 @@ Singleton {
 
         function onRawEvent(event) {
             // console.log("Hyprland raw event:", event.name);
-            if (["openlayer", "closelayer", "screencast"].includes(event.name)) return;
-            updateAll()
+            const name = event.name;
+            if (["openlayer", "closelayer", "screencast"].includes(name)) return;
+            // Title / active-window changes are by far the most frequent events and only
+            // affect the client list — never refetch monitors/layers/workspaces for them.
+            if (name === "windowtitle" || name === "windowtitlev2"
+                || name === "activewindow" || name === "activewindowv2") {
+                root.scheduleUpdate(true, false, false, false);
+                return;
+            }
+            // Any other (structural) event: refresh everything, but coalesced/debounced.
+            root.scheduleUpdate(true, true, true, true);
         }
     }
 
@@ -107,6 +147,19 @@ Singleton {
                 }
                 root.windowByAddress = tempWinByAddress;
                 root.addresses = root.windowList.map(win => win.address);
+                // Precompute biggest window per workspace once here, instead of every
+                // workspace button re-scanning the full list on each window change.
+                let tempBiggest = {};
+                for (var j = 0; j < root.windowList.length; ++j) {
+                    const w = root.windowList[j];
+                    const wsId = w?.workspace?.id;
+                    if (wsId === undefined) continue;
+                    const area = (w?.size?.[0] ?? 0) * (w?.size?.[1] ?? 0);
+                    const cur = tempBiggest[wsId];
+                    const curArea = (cur?.size?.[0] ?? 0) * (cur?.size?.[1] ?? 0);
+                    if (!cur || area > curArea) tempBiggest[wsId] = w;
+                }
+                root.biggestWindowByWorkspace = tempBiggest;
             }
         }
     }

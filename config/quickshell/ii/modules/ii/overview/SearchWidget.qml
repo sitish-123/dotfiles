@@ -129,15 +129,10 @@ Item { // Wrapper
             }
             spacing: 0
 
-            // clip: true
-            layer.enabled: true
-            layer.effect: OpacityMask {
-                maskSource: Rectangle {
-                    width: searchWidgetContent.width
-                    height: searchWidgetContent.width
-                    radius: searchWidgetContent.radius
-                }
-            }
+            // clip instead of a layer+OpacityMask: the old FBO re-rendered every frame
+            // of the height animation on every keystroke, which was a big chunk of the
+            // pill's typing wobble. Parent already paints the rounded background.
+            clip: true
 
             SearchBar {
                 id: searchBar
@@ -224,20 +219,15 @@ Item { // Wrapper
                     }
                 }
 
-                Timer {
-                    id: debounceTimer
-                    interval: root.typingDebounceInterval
-                    onTriggered: {
-                        resultModel.values = LauncherSearch.results ?? [];
-                    }
-                }
-
                 Connections {
                     target: LauncherSearch
                     function onResultsChanged() {
+                        // One stable update per keystroke. The old code also set the
+                        // FULL unsliced list 200ms later via a timer, which defeated this
+                        // slice limit and forced a second relayout (+ height animation
+                        // re-trigger) on every keystroke — that was extra pill wobble.
                         resultModel.values = LauncherSearch.results.slice(0, root.emojiMode ? 150 : root.typingResultLimit);
                         root.focusFirstItem();
-                        debounceTimer.restart();
                     }
                 }
 

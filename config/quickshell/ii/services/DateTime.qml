@@ -48,7 +48,8 @@ Singleton {
             if (minutes > 0 || !formatted)
                 formatted += `${formatted ? ", " : ""}${minutes}m`;
             uptime = formatted;
-            interval = Config.options?.resources?.updateInterval ?? 3000;
+            // Uptime is minute-granular; no need to re-read /proc/uptime every 3s.
+            interval = 30000;
         }
     }
 
