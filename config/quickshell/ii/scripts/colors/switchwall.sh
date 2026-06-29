@@ -74,21 +74,28 @@ check_and_prompt_upscale() {
             img_height=$(identify -format "%h" "$img" 2>/dev/null)
         fi
         if [[ "$img_width" -lt "$min_width_desired" || "$img_height" -lt "$min_height_desired" ]]; then
+            # -t 0 = no auto-expire: the notification stays in the list and this
+            # notify-send keeps waiting, so the action is still invocable minutes later
+            # (the old default ~7s timeout killed the action -> tapping did nothing).
+            # Action id "default" so tapping the notification BODY triggers it too (see
+            # NotificationGroup tap-to-act), not just the button.
             action=$(notify-send "Upscale?" \
                 "Image resolution (${img_width}x${img_height}) is lower than screen resolution (${min_width_desired}x${min_height_desired})" \
-                -A "open_upscayl=Open Upscayl"\
+                -t 0 \
+                -A "default=Open Upscayl"\
                 -a "Wallpaper switcher")
-            if [[ "$action" == "open_upscayl" ]]; then
+            if [[ "$action" == "default" ]]; then
                 if command -v upscayl &>/dev/null; then
                     nohup upscayl > /dev/null 2>&1 &
                 else
                     action2=$(notify-send \
                         -a "Wallpaper switcher" \
                         -c "im.error" \
-                        -A "install_upscayl=Install Upscayl (Arch)" \
+                        -t 0 \
+                        -A "default=Install Upscayl (Arch)" \
                         "Install Upscayl?" \
                         "yay -S upscayl-bin")
-                    if [[ "$action2" == "install_upscayl" ]]; then
+                    if [[ "$action2" == "default" ]]; then
                         kitty -1 yay -S upscayl-bin
                         if command -v upscayl &>/dev/null; then
                             nohup upscayl > /dev/null 2>&1 &
