@@ -91,8 +91,20 @@ MouseArea { // Notification group area
         }
 
         onClicked: (mouse) => {
-            if (mouse.button === Qt.MiddleButton) 
+            if (mouse.button === Qt.MiddleButton) {
                 root.destroyWithAnimation();
+                return;
+            }
+            if (mouse.button === Qt.LeftButton) {
+                // Tap-to-act: if a notification carries a "default" action (the one apps
+                // fire when you click the notification, e.g. "open"), invoke it — like a
+                // phone. Otherwise just expand so the Close/Copy/action buttons are reachable.
+                const defNotif = root.notifications.find(n => (n.actions ?? []).some(a => a.identifier === "default"));
+                if (defNotif)
+                    Notifications.attemptInvokeAction(defNotif.notificationId, "default");
+                else
+                    root.toggleExpanded();
+            }
         }
 
         onDraggingChanged: () => {

@@ -36,7 +36,7 @@ WindowDialog {
     // On the first valid Wi-Fi QR: stop the camera and connect via the normal path.
     Process {
         id: qrScanProc
-        command: ["zbarcam", "--raw", "--prefer-largest", "-q"]
+        command: ["zbarcam", "--raw", "-q"]
         stdout: SplitParser {
             onRead: data => {
                 const parsed = root.parseWifiQr(data.trim());
