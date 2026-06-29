@@ -61,6 +61,27 @@ else
 fi
 ok "KWallet disabled; gnome-keyring is the keyring"
 
+# 4b) Bluetooth: faster + reliable auto-reconnect ----------------------------
+# Defaults make trusted devices (e.g. earbuds) reconnect slowly/inconsistently.
+# FastConnectable speeds reconnection; AutoEnable powers the adapter on at boot;
+# tighter ReconnectIntervals retry sooner. Keys are unique across sections, so a
+# global uncomment-or-set is safe and preserves the rest of the file.
+BTCONF=/etc/bluetooth/main.conf
+if [ -f "$BTCONF" ]; then
+    info "Bluetooth: tuning $BTCONF for faster auto-reconnect"
+    set_bt() { # key value  — uncomment/replace the (unique) key in place
+        if sudo grep -qiE "^#?\s*$1\s*=" "$BTCONF"; then
+            sudo sed -i -E "s|^#?\s*$1\s*=.*|$1 = $2|" "$BTCONF"
+        fi
+    }
+    set_bt FastConnectable true
+    set_bt AutoEnable true
+    set_bt ReconnectAttempts 7
+    set_bt ReconnectIntervals "1,1,2,4,8,16"
+    sudo systemctl restart bluetooth.service 2>/dev/null || true
+    ok "Bluetooth tuned (FastConnectable/AutoEnable/Reconnect)"
+fi
+
 # 5) PAM keyring auto-unlock — CHECK ONLY (never auto-edit /etc/pam.d) --------
 DM_PAM="/etc/pam.d/sddm"
 if [ -f "$DM_PAM" ] && ! grep -q pam_gnome_keyring "$DM_PAM"; then

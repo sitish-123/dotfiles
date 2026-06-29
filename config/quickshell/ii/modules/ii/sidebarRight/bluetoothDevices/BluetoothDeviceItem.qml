@@ -87,10 +87,10 @@ DialogListItem {
             clip: true
             implicitHeight: root.expanded ? body.implicitHeight + 12 : 0
             Behavior on implicitHeight {
-                NumberAnimation { duration: 220; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.emphasizedDecel }
+                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
             }
             opacity: root.expanded ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 160 } }
+            Behavior on opacity { NumberAnimation { duration: 100 } }
 
             ColumnLayout {
                 id: body
