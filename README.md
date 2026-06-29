@@ -97,9 +97,9 @@ clipboard-paste and the on-screen keyboard).
 highest workspace number, "+" create cells, rounded tiles, focus-follows-cursor,
 blurred-bg (opt-in), 4-finger re-arm + 3-finger interactivity fixes.
 
-**Overview switcher** (`config/hypr/custom/scripts/overview-switch.sh`): one
-overview active at a time — `SUPER+CTRL+1` scrolloverview, `SUPER+CTRL+2/3`
-hyprtasking, `SUPER+CTRL+0` off, `SUPER+\`` toggle. 4-finger-up opens it.
+**Overview control** (`config/hypr/custom/scripts/overview-switch.sh`): the
+hyprtasking fork is the one overview plugin — `SUPER+CTRL+1` on, `SUPER+CTRL+0`
+off, `SUPER+\`` toggle (open/close). 4-finger-up opens it.
 
 **Quickshell (ii)**: emoji grid + recently-used, clipboard timestamps, launcher
 tweaks — our modifications on top of the vendored *illogical-impulse* config (see

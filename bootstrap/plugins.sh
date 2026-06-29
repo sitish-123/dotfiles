@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Set up Hyprland plugins: hyprpm headers, the scrolloverview alt overview, and
-# build our hyprtasking fork (the pkgs/hyprtasking submodule).
+# Build our hyprtasking fork (the pkgs/hyprtasking submodule) — the one overview
+# plugin this setup uses. It compiles against the SYSTEM Hyprland headers (the
+# hyprland.pc pulled in by the hyprland package), so there's no hyprpm step and no
+# header-cache to keep in sync.
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-have hyprpm || die "hyprpm not found (install hyprland)"
-
-# hyprpm + the fork build need this toolchain. If the package phase failed (e.g. a
-# stale-DB 404 storm took out cpio/meson), bail early with one clear line instead of
-# a confusing cascade ("Missing dependency: cpio" / "meson: command not found").
+# The fork build needs this toolchain (meson pulls ninja). If the package phase failed
+# (e.g. a stale-DB 404 storm took out meson), bail early with one clear line instead of
+# a confusing cascade ("meson: command not found" / "Package hyprland was not found").
 MISSING=()
-for t in cpio meson cmake g++ pkg-config; do have "$t" || MISSING+=("$t"); done
+for t in meson g++ pkg-config; do have "$t" || MISSING+=("$t"); done
+pkg-config --exists hyprland 2>/dev/null || MISSING+=("hyprland(-devel headers)")
 if [ "${#MISSING[@]}" -gt 0 ]; then
     warn "plugin toolchain missing: ${MISSING[*]} — fix packages first (sudo pacman -Syu), then re-run install.sh"
     exit 0
@@ -24,27 +25,8 @@ if [ -n "$HVER" ] && [ "$(printf '%s\n%s\n' "$HYPR_MIN" "$HVER" | sort -V | head
     warn "Hyprland $HVER is older than $HYPR_MIN — the config may fail to parse. Run: sudo pacman -Syu"
 fi
 
-info "Updating hyprpm headers"
-hyprpm update || warn "hyprpm update reported issues (continuing)"
-
-# Optional niri-style carousel overview (community plugin).
-SCROLL_URL="https://github.com/yayuuu/hyprland-scroll-overview.git"
-if ! hyprpm list 2>/dev/null | grep -qi scrolloverview; then
-    info "Adding scrolloverview"
-    if ! hyprpm add "$SCROLL_URL"; then
-        # "Headers outdated" immediately after a successful `hyprpm update` is a known
-        # hyprpm hiccup (the add re-checks headers against the *running* compositor). A
-        # forced header rebuild + one retry clears it. If hyprpm can't reach a running
-        # Hyprland at all (fresh install, not yet logged in), this still won't take —
-        # tell the user to finish it from inside a session.
-        warn "scrolloverview add failed — forcing header rebuild and retrying"
-        hyprpm update -f || true
-        hyprpm add "$SCROLL_URL" || \
-            warn "scrolloverview still not added — from inside a Hyprland session run: hyprpm update -f && hyprpm add $SCROLL_URL"
-    fi
-fi
-
-# Build our hyprtasking fork (adaptive grid + the rest).
+# Build our hyprtasking fork (adaptive grid + the rest). This is the only overview
+# plugin — loaded at login via custom/scripts/overview-switch.sh (hyprctl plugin load).
 FORK="$DOT_ROOT/pkgs/hyprtasking"
 if [ -d "$FORK" ]; then
     info "Building hyprtasking fork"
@@ -55,5 +37,4 @@ if [ -d "$FORK" ]; then
     [ -e "$HOME/Projects/hyprtasking" ] || ln -s "$FORK" "$HOME/Projects/hyprtasking"
 fi
 
-hyprpm reload >/dev/null 2>&1 || true
 ok "plugins ready"

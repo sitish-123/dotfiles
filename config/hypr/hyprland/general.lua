@@ -31,10 +31,10 @@ hl.gesture({
     direction = "horizontal",
     action = "workspace"
 })
--- NOTE: 4-finger up/down gestures are now handled by the overview-plugin
--- switcher in ~/.config/hypr/custom/general.lua (scrolloverview / hyprtasking /
--- Hyprspace). The quickshell overview remains on SUPER+Tab. If you want the
--- quickshell overview back on a 4-finger swipe, re-enable the blocks below.
+-- NOTE: 4-finger up/down gestures are now handled by the hyprtasking overview
+-- in ~/.config/hypr/custom/general.lua. The quickshell overview remains on
+-- SUPER+Tab. If you want the quickshell overview back on a 4-finger swipe,
+-- re-enable the blocks below.
 -- hl.gesture({
 --     fingers = 4,
 --     direction = "up",

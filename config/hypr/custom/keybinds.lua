@@ -10,14 +10,11 @@ hl.bind(
     { description = "Toggle Touchscreen" }
 )
 
--- Overview switcher: choose which overview the 4-finger-up swipe opens.
--- (one plugin active at a time; switch + reload happens automatically)
+-- Overview (hyprtasking fork): the 4-finger-up swipe opens it; these toggle it on/off.
 local _ovsw = "~/.config/hypr/custom/scripts/overview-switch.sh "
-hl.bind("SUPER + CTRL + 1", hl.dsp.exec_cmd(_ovsw .. "scrolloverview"), { description = "Overview: niri scroll carousel" })
-hl.bind("SUPER + CTRL + 2", hl.dsp.exec_cmd(_ovsw .. "hyprtasking"),    { description = "Overview: hyprtasking (stock)" })
-hl.bind("SUPER + CTRL + 3", hl.dsp.exec_cmd(_ovsw .. "fork"),           { description = "Overview: hyprtasking FORK (adaptive, dev)" })
-hl.bind("SUPER + CTRL + 0", hl.dsp.exec_cmd(_ovsw .. "off"),            { description = "Overview: disable plugin" })
-hl.bind("SUPER + grave",    hl.dsp.exec_cmd(_ovsw .. "toggle"),         { description = "Overview: toggle active one" })
+hl.bind("SUPER + CTRL + 1", hl.dsp.exec_cmd(_ovsw .. "hyprtasking"), { description = "Overview: hyprtasking (adaptive grid)" })
+hl.bind("SUPER + CTRL + 0", hl.dsp.exec_cmd(_ovsw .. "off"),         { description = "Overview: disable plugin" })
+hl.bind("SUPER + grave",    hl.dsp.exec_cmd(_ovsw .. "toggle"),      { description = "Overview: open/close" })
 
 -- Super + Space: toggle the workspace overview. (Tap Super alone already opens
 -- the app launcher via the ii SUPER+SUPER_L search binding.)
