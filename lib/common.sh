@@ -27,4 +27,4 @@ link() {
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Configs this repo manages, under config/ and symlinked into ~/.config/
-MANAGED_CONFIGS=(hypr quickshell matugen illogical-impulse)
+MANAGED_CONFIGS=(hypr quickshell matugen illogical-impulse kitty)

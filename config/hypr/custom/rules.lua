@@ -1,4 +1,4 @@
-hl.window_rule({
-    match = { class = "^(kitty)$" },
-    opacity = 0.85
-})
+-- kitty transparency is handled by kitty's own `background_opacity` (translucent
+-- background, crisp text). A whole-window opacity rule here would dim the text too,
+-- so it's intentionally removed. Re-add an `opacity` rule if you want the whole
+-- window (text included) translucent instead.
