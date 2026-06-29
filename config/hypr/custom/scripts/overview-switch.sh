@@ -70,6 +70,27 @@ case "${1:-}" in
       esac
       ;;
 
-  *) echo "usage: overview-switch.sh <scrolloverview|hyprtasking|fork|off|toggle>"; exit 1 ;;
+  restore|startup)
+      # Run ONCE at login (from custom/execs.lua) to load whatever overview was last
+      # active, so it never needs manual re-enabling each boot. Single load with nothing
+      # else loaded yet -> no unload, so it avoids the plugin-reload race that crashes
+      # Hyprland when frames render mid-swap. Small settle delay lets the compositor come
+      # up first. The hyprctl reload re-runs custom/general.lua, which applies the fork's
+      # config (adaptive/blur_bg/rounding/...) now that the plugin is loaded.
+      sleep 1.5
+      cur="$(cat "$STATE" 2>/dev/null || echo hyprtasking)"
+      case "$cur" in
+        scrolloverview)
+            hyprpm disable hyprtasking >/dev/null 2>&1
+            hyprctl plugin load "$SCROLL_SO" >/dev/null 2>&1 ;;
+        hyprtasking|fork)
+            hyprpm disable hyprtasking >/dev/null 2>&1  # stock stays off; our fork .so IS hyprtasking
+            [ -f "$FORK_SO" ] && hyprctl plugin load "$FORK_SO" >/dev/null 2>&1 ;;
+        *) exit 0 ;;  # off/none -> load nothing
+      esac
+      hyprctl reload >/dev/null 2>&1
+      ;;
+
+  *) echo "usage: overview-switch.sh <scrolloverview|hyprtasking|fork|off|toggle|restore>"; exit 1 ;;
 esac
 true

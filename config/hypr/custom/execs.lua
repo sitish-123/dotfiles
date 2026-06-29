@@ -7,4 +7,7 @@ hl.on("hyprland.start", function ()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE XDG_SESSION_TYPE && systemctl --user start hyprland-session.target")
     -- Load Xft.dpi so XWayland apps (e.g. kitty forced to X11 for touch) scale at 1.6x
     hl.exec_cmd("xrdb -merge $HOME/.Xresources")
+    -- Auto-load the last-active overview plugin (our hyprtasking fork by default) so it
+    -- doesn't need manual SUPER+CTRL+3 every boot. Loads once -> no reload-race crash.
+    hl.exec_cmd("$HOME/.config/hypr/custom/scripts/overview-switch.sh restore")
 end)
