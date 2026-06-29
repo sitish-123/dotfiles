@@ -29,6 +29,10 @@ Scope {
         WlrLayershell.namespace: "quickshell:overview"
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.keyboardFocus: GlobalStates.overviewOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        // Float over windows instead of reserving space. Without this the default
+        // ExclusionMode.Auto makes this top-anchored layer push/reflow tiled windows
+        // when clipboard/emoji/search opens — that's the "takes tile space" + the jitter.
+        exclusiveZone: 0
         color: "transparent"
 
         mask: Region {

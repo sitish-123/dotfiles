@@ -26,9 +26,10 @@ ContentPage {
         }
     }
     Timer {
-        running: root.visible      // only poll while the Battery page is open
+        // Only polls while the Battery page is actually on screen — zero cost otherwise.
+        running: root.visible
         repeat: true
-        interval: 4000
+        interval: 5000
         triggeredOnStart: true
         onTriggered: procTop.running = true
     }
