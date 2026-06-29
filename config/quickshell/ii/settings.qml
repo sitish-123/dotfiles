@@ -23,48 +23,71 @@ ApplicationWindow {
     property real contentPadding: 8
     property bool showNextTime: false
     property var pages: [
+        // --- System ---
         {
+            section: Translation.tr("System"),
             name: Translation.tr("Battery"),
             icon: "battery_full",
             component: "modules/settings/BatteryConfig.qml"
         },
         {
+            section: Translation.tr("System"),
+            name: Translation.tr("Network"),
+            icon: "wifi",
+            component: "modules/settings/NetworkConfig.qml"
+        },
+        {
+            section: Translation.tr("System"),
+            name: Translation.tr("Bluetooth"),
+            icon: "bluetooth",
+            component: "modules/settings/BluetoothConfig.qml"
+        },
+        // --- Customization ---
+        {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Quick"),
             icon: "instant_mix",
             component: "modules/settings/QuickConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("General"),
             icon: "browse",
             component: "modules/settings/GeneralConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Bar"),
             icon: "toast",
             iconRotation: 180,
             component: "modules/settings/BarConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Background"),
             icon: "texture",
             component: "modules/settings/BackgroundConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Interface"),
             icon: "bottom_app_bar",
             component: "modules/settings/InterfaceConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Services"),
             icon: "settings",
             component: "modules/settings/ServicesConfig.qml"
         },
         {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Advanced"),
             icon: "construction",
             component: "modules/settings/AdvancedConfig.qml"
         },
         {
+            section: Translation.tr("About"),
             name: Translation.tr("About"),
             icon: "info",
             component: "modules/settings/About.qml"
@@ -208,21 +231,39 @@ ApplicationWindow {
                         }
                     }
 
-                    NavigationRailTabArray {
-                        currentIndex: root.currentPage
-                        expanded: navRail.expanded
+                    ColumnLayout { // Grouped tabs (System / Customization) with section labels
+                        Layout.topMargin: 20
+                        Layout.fillWidth: true
+                        spacing: 2
                         Repeater {
                             model: root.pages
-                            NavigationRailButton {
+                            delegate: ColumnLayout {
                                 required property var index
                                 required property var modelData
-                                toggled: root.currentPage === index
-                                onPressed: root.currentPage = index;
-                                expanded: navRail.expanded
-                                buttonIcon: modelData.icon
-                                buttonIconRotation: modelData.iconRotation || 0
-                                buttonText: modelData.name
-                                showToggledHighlight: false
+                                readonly property bool sectionStart: index === 0 || root.pages[index - 1].section !== modelData.section
+                                Layout.fillWidth: true
+                                Layout.topMargin: (index > 0 && sectionStart) ? 10 : 0
+                                spacing: 2
+
+                                StyledText {
+                                    visible: navRail.expanded && parent.sectionStart
+                                    Layout.leftMargin: 10
+                                    Layout.bottomMargin: 2
+                                    text: modelData.section ?? ""
+                                    color: Appearance.colors.colSubtext
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    font.weight: Font.Medium
+                                }
+                                NavigationRailButton {
+                                    Layout.fillWidth: true
+                                    toggled: root.currentPage === parent.index
+                                    onPressed: root.currentPage = parent.index
+                                    expanded: navRail.expanded
+                                    buttonIcon: modelData.icon
+                                    buttonIconRotation: modelData.iconRotation || 0
+                                    buttonText: modelData.name
+                                    showToggledHighlight: true
+                                }
                             }
                         }
                     }
