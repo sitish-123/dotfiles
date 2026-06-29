@@ -12,7 +12,9 @@ Singleton {
     property bool available: UPower.displayDevice.isLaptopBattery
     property var chargeState: UPower.displayDevice.state
     property bool isCharging: chargeState == UPowerDeviceState.Charging
-    property bool isPluggedIn: isCharging || chargeState == UPowerDeviceState.PendingCharge
+    // AC connected = NOT on battery. Robust at 100% (state is "fully charged", not
+    // "charging") — UPower.onBattery is the canonical, reactive flag.
+    property bool isPluggedIn: !UPower.onBattery
     property real percentage: UPower.displayDevice?.percentage ?? 1
     readonly property bool allowAutomaticSuspend: Config.options.battery.automaticSuspend
     readonly property bool soundEnabled: Config.options.sounds.battery
