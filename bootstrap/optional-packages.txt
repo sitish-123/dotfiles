@@ -27,3 +27,6 @@ gpu-screen-recorder
 # group: wallpaper-extras | Video wallpapers (mpvpaper) + AI wallpaper upscaling (upscayl)
 aur:mpvpaper
 aur:upscayl-bin
+
+# group: latex | LaTeX/math rendering in the shell (MicroTeX) — git build, can be slow/conflict
+aur:mainstream-microtex-git

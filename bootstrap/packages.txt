@@ -27,7 +27,9 @@ aur:mainstream-backlight
 aur:mainstream-portal
 aur:mainstream-screencapture
 aur:mainstream-fonts-themes
-aur:mainstream-microtex-git
+# NOTE: mainstream-microtex-git (LaTeX/math rendering in the shell) moved to
+# optional-packages.txt — it's a -git source build that can fail/conflict, and the
+# desktop runs fine without it. Install it via the optional "latex" group if wanted.
 
 # --- Quickshell runtime (renders the ii config; not pulled transitively) ---
 aur:quickshell-git
