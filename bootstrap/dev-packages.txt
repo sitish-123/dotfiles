@@ -26,3 +26,8 @@ postgresql
 # --- mobile / android ---
 android-tools
 aur:android-studio
+
+# --- face unlock (PAM) — heavy: pulls python-dlib -> cuda + cudnn (~6 GB) ---
+# Re-enroll per machine: `sudo howdy add`; set [video] device_path in
+# /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + ARCH-INSTALL.md.
+aur:howdy-git

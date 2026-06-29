@@ -3,27 +3,37 @@
 # Lines starting `aur:` need an AUR helper (yay). install.sh parses this.
 #
 # SELF-CONTAINED: we own the CONFIG (vendored in config/). The desktop's deps come
-# from the `illogical-impulse-*` AUR meta-packages below — these pull the full
-# qt6 / fonts / python / portal / quickshell stack transitively. No separate
+# from the `mainstream-*` AUR meta-packages below — these pull the full
+# qt6 / fonts / python / portal stack transitively. No separate
 # "run the end-4 installer" step is needed; `install.sh` installs everything here.
-# (The ii *config* = our repo; `illogical-impulse-quickshell-git` = the ii-flavored
-# Quickshell *runtime* — different things.)
+# (The ii *config* = our repo; `quickshell-git` = the Quickshell *runtime* that
+# renders it — different things. NOTE: nothing pulls quickshell transitively, so it
+# MUST stay listed explicitly or the bar/desktop won't start.)
+#
+# Upstream (end-4) renamed these from `illogical-impulse-*` to `mainstream-*`; the
+# old names no longer exist in the AUR. `illogical-impulse-quickshell-git` was
+# replaced by the standalone `quickshell-git`, `illogical-impulse-kde` was dropped
+# (its essentials now live in mainstream-basic's deps), and the bibata cursor moved
+# to the upstream `bibata-cursor-theme-bin`.
 
-# --- illogical-impulse meta-packages (the base; pull most deps transitively) ---
-aur:illogical-impulse-basic
-aur:illogical-impulse-hyprland
-aur:illogical-impulse-quickshell-git
-aur:illogical-impulse-toolkit
-aur:illogical-impulse-widgets
-aur:illogical-impulse-python
-aur:illogical-impulse-audio
-aur:illogical-impulse-backlight
-aur:illogical-impulse-portal
-aur:illogical-impulse-screencapture
-aur:illogical-impulse-kde
-aur:illogical-impulse-fonts-themes
-aur:illogical-impulse-bibata-modern-classic-bin
-aur:illogical-impulse-microtex-git
+# --- mainstream meta-packages (the base; pull most deps transitively) ---
+aur:mainstream-basic
+aur:mainstream-hyprland
+aur:mainstream-toolkit
+aur:mainstream-widgets
+aur:mainstream-python
+aur:mainstream-audio
+aur:mainstream-backlight
+aur:mainstream-portal
+aur:mainstream-screencapture
+aur:mainstream-fonts-themes
+aur:mainstream-microtex-git
+
+# --- Quickshell runtime (renders the ii config; not pulled transitively) ---
+aur:quickshell-git
+
+# --- cursor theme (was illogical-impulse-bibata-modern-classic-bin) ---
+aur:bibata-cursor-theme-bin
 
 # --- theming ---
 aur:matugen-bin
@@ -35,11 +45,9 @@ adw-gtk3
 # --- browser (SUPER+B / SUPER+H keybind) ---
 chromium
 
-# --- biometric / face unlock + lockscreen auth ---
-# Face unlock (PAM). Re-enroll per machine: `sudo howdy add`; set [video] device_path
-# in /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + ARCH-INSTALL.md.
-aur:howdy-git
-# Fingerprint unlock
+# --- biometric / fingerprint unlock ---
+# Fingerprint unlock. (Face unlock via howdy is opt-in — see bootstrap/dev-packages.txt;
+# it pulls ~6 GB of cuda/cudnn through python-dlib, so it's not in the base install.)
 fprintd
 
 # --- backup ---

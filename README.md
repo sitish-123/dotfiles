@@ -37,21 +37,32 @@ both; bare-metal Arch install itself is documented in `ARCH-INSTALL.md`.
 
 **Self-contained — no separate end-4 installer step.** This repo owns the *config*;
 the heavy dependency stack (qt6, fonts, portal, pipewire, quickshell) comes from the
-`illogical-impulse-*` AUR **packages** listed in `bootstrap/packages.txt`, which
-`install.sh` installs for you. (The `ii` config is ours; `illogical-impulse-quickshell-git`
+`mainstream-*` AUR **packages** listed in `bootstrap/packages.txt`, which
+`install.sh` installs for you. (The `ii` config is ours; `quickshell-git`
 is just the Quickshell *runtime* it runs on — different things.)
 
 ```bash
 git clone --recurse-submodules https://github.com/sitish-kumar/dotfiles.git ~/Projects/dotfiles
 cd ~/Projects/dotfiles
-./install.sh        # packages (official+AUR via yay) → submodule → symlink configs → build fork → ydotool
+./install.sh        # packages (official+AUR) → submodule → symlink configs → build fork → ydotool
 ```
 
-**Requires an AUR helper (`yay`)** — the `illogical-impulse-*` meta-packages and
-`matugen-bin` are AUR-only. `install.sh` backs up any existing
-`~/.config/{hypr,quickshell,matugen,illogical-impulse}` before symlinking ours in,
-and enables the `ydotool` user service (needed for clipboard-paste and the on-screen
-keyboard).
+**Run modes.** `install.sh` first asks whether to run **automatically** (no prompts)
+or **manually** (confirm before each phase, and `pacman`/`yay` prompt per transaction
+so you can read conflicts and pick providers). Force it with `--auto`/`-y` or
+`--manual`/`-i`. Piping into bash defaults to automatic.
+
+**No AUR helper needed up front** — if `yay` is missing, `install.sh` bootstraps
+`yay-bin` from the AUR automatically. It does a full `pacman -Syu` (avoids stale-DB
+404s), and if the desktop's **critical** packages (`hyprland`, `quickshell`) can't be
+installed — e.g. an unresolvable conflict — it **stops before touching your configs**
+rather than leaving a half-converted machine. A single conflicting package no longer
+aborts the whole batch: the rest install and the culprit is reported at the end.
+
+`install.sh` backs up any existing `~/.config/{hypr,quickshell,matugen,illogical-impulse}`
+before symlinking ours in, and enables the `ydotool` user service (needed for
+clipboard-paste and the on-screen keyboard). Face unlock (`howdy`) is **opt-in** via
+`./install.sh --dev` — it pulls ~6 GB of cuda/cudnn.
 
 ## Keep it in sync
 
