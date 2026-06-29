@@ -159,8 +159,14 @@ Singleton {
                 property string terminal: "kitty -1" // This is only for shell actions
                 property string update: "kitty -1 --hold=yes fish -i -c 'pkexec pacman -Syu'"
                 // Full update: packages + dotfiles + plugins. Resolves the dotfiles repo
-                // from the ~/.config/quickshell symlink, then runs update-all.sh.
+                // from the ~/.config/quickshell symlink, then runs update-all.sh. Opens a
+                // terminal because `yay -Syu` needs root (password) + may prompt on conflicts.
                 property string updateAll: "kitty -1 --hold=yes bash -c 'cd $(dirname $(dirname $(readlink -f ~/.config/quickshell))) && ./update-all.sh'"
+                // Dotfiles-only update: SEAMLESS — no terminal, no password (update.sh uses no
+                // sudo). execDetached already runs this via `bash -c`, so it's a plain script.
+                // Runs in the background and just notifies. GIT_TERMINAL_PROMPT=0 makes a
+                // missing-credential pull fail fast instead of hanging this detached process.
+                property string updateDotfiles: "cd $(dirname $(dirname $(readlink -f ~/.config/quickshell))) && notify-send -a Dotfiles Dotfiles 'Updating…' && GIT_TERMINAL_PROMPT=0 ./update.sh >/tmp/dotfiles-update.log 2>&1 && notify-send -a Dotfiles Dotfiles 'Updated ✓ — reloaded' || notify-send -a Dotfiles -u critical Dotfiles 'Update failed — see /tmp/dotfiles-update.log'"
                 property string volumeMixer: `~/.config/hypr/hyprland/scripts/launch_first_available.sh "pavucontrol-qt" "pavucontrol"`
             }
 

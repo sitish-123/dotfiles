@@ -65,11 +65,20 @@ ContentPage {
             }
             RippleButtonWithIcon {
                 Layout.fillWidth: true
+                materialIcon: "deployed_code_update"
+                mainText: Translation.tr("Update dotfiles")
+                onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.updateDotfiles])
+                StyledToolTip {
+                    text: Translation.tr("Dotfiles + plugins only — runs in the background, no terminal or password. Notifies when done.")
+                }
+            }
+            RippleButtonWithIcon {
+                Layout.fillWidth: true
                 materialIcon: "download"
                 mainText: Translation.tr("Update everything")
                 onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.updateAll])
                 StyledToolTip {
-                    text: Translation.tr("System packages (official + AUR), then dotfiles + plugins")
+                    text: Translation.tr("System packages (official + AUR), then dotfiles + plugins. Opens a terminal; needs your password for packages.")
                 }
             }
         }
