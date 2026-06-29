@@ -95,7 +95,20 @@ overview active at a time — `SUPER+CTRL+1` scrolloverview, `SUPER+CTRL+2/3`
 hyprtasking, `SUPER+CTRL+0` off, `SUPER+\`` toggle. 4-finger-up opens it.
 
 **Quickshell (ii)**: emoji grid + recently-used, clipboard timestamps, launcher
-tweaks. We own this — no upstream dependency.
+tweaks — our modifications on top of the vendored *illogical-impulse* config (see
+Credits below).
 
 **Gestures/keybinds**: 3-finger pinch disabled (Hyprland 0.55 pinch→swipe crash
 workaround); see `config/hypr/`.
+
+## Credits & License
+
+The desktop config (`config/quickshell/ii`) is **derived from
+[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)** (*illogical-impulse*,
+GPL-3.0), with bits from [caelestia-dots/shell](https://github.com/caelestia-dots/shell)
+(GPL-3.0); the overview plugin is a fork of
+[raybbian/hyprtasking](https://github.com/raybbian/hyprtasking) (BSD-3-Clause). Full
+attribution is in **[CREDITS.md](CREDITS.md)**.
+
+Released under **GPL-3.0** (see [LICENSE](LICENSE)) — required by the copyleft of the
+vendored work above.
