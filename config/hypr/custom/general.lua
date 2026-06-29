@@ -1,8 +1,10 @@
--- Portable default: every output uses its NATIVE mode + an auto-picked scale, so this
--- adapts per machine instead of forcing one laptop's panel. On this 2880x1800@120
--- laptop "preferred" still resolves to 2880x1800@120. To pin a specific machine, set
--- e.g. monitor = "eDP-1,2880x1800@120,auto,1.5" (but keep that out of the shared repo).
-monitor = ",preferred,auto,auto"
+-- This panel: native mode (preferred) + a PINNED scale — NOT auto. `auto` re-derives the
+-- scale on every `hyprctl reload` (e.g. the sidebar "Reload Hyprland & Quickshell" button),
+-- which silently overrides any scale you set in Settings > Display and can leave the output
+-- in a weird state mid-reload. A fixed value is deterministic: reloads keep exactly this.
+-- Change the number to taste (1.5 / 1.6 / 1.8). Other outputs/machines fall back to the
+-- portable ",preferred,auto,auto" default in hyprland/general.lua.
+monitor = "eDP-1,preferred,auto,1.6"
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- Overview plugin switcher
