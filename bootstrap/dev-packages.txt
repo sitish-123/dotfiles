@@ -1,33 +1,35 @@
 # OPT-IN development software (captured from the reference machine).
-# NOT installed by default. Install with:  ./install.sh --dev   (or: ./install.sh --dev --no-system)
-# Same format as packages.txt: one package per line, `aur:` prefix needs yay,
-# comments on their own line.
+# NOT installed by default. Enable the dev phase with:  ./install.sh --dev
+#   manual mode (-i)      -> asked per group below
+#   --dev --with-optional -> install every group
+#   --dev (automatic)     -> install every group (--dev is the explicit opt-in)
+#   --dev --no-optional   -> consider nothing
+# Format: same `# group: name | desc` sections as optional-packages.txt.
+# One package per line; `aur:` prefix needs yay; bare `#` lines are ignored.
 
-# --- editors / IDEs ---
+# group: editors | VS Code + vim + GitHub CLI
 aur:visual-studio-code-bin
 vim
-
-# --- version control ---
 github-cli
 
-# --- languages / runtimes ---
+# group: languages | Node, Python, Java toolchains
 nodejs
 npm
 python-pip
 jdk17-openjdk
 
-# --- containers (enable the service after: sudo systemctl enable --now docker) ---
+# group: containers | Docker + compose (enable after: sudo systemctl enable --now docker)
 docker
 docker-compose
 
-# --- databases ---
+# group: databases | PostgreSQL
 postgresql
 
-# --- mobile / android ---
+# group: android | adb/fastboot tools + Android Studio
 android-tools
 aur:android-studio
 
-# --- face unlock (PAM) — heavy: pulls python-dlib -> cuda + cudnn (~6 GB) ---
+# group: face-unlock | Howdy IR face unlock — HEAVY: pulls python-dlib -> CUDA + cuDNN (~6 GB)
 # Re-enroll per machine: `sudo howdy add`; set [video] device_path in
 # /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + ARCH-INSTALL.md.
 aur:howdy-git

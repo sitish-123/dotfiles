@@ -6,9 +6,14 @@
 #   automatic (--auto/-y) : every phase runs with --noconfirm, no questions asked.
 #   manual    (--manual/-i): confirm before each phase, AND pacman/yay prompt per
 #                            transaction so you can read conflicts and pick providers.
-# Other flags: --no-system (skip /etc tweaks), --dev (also install dev-packages.txt),
-#   --with-optional / --no-optional (install or skip ALL optional groups without asking;
-#   default: ask per group in manual mode, skip them in automatic mode).
+# Other flags:
+#   --no-system : skip /etc tweaks.
+#   --dev       : also offer the dev-packages.txt groups (editors / languages /
+#                 containers / db / android / face-unlock). Manual mode asks per
+#                 group; automatic mode installs them all (--dev is the opt-in).
+#   --with-optional / --no-optional : install or skip ALL optional groups (base AND
+#                 dev) without asking. Default: ask per group in manual mode, and in
+#                 automatic mode skip base groups but install dev groups when --dev.
 source "$(dirname "$0")/lib/common.sh"
 
 WANT_SYSTEM=1; WANT_DEV=0; ASSUME_YES=""; WANT_OPTIONAL=""
@@ -20,7 +25,7 @@ for a in "$@"; do
         --manual|-i)      ASSUME_YES=0 ;;
         --with-optional)  WANT_OPTIONAL=1 ;;
         --no-optional)    WANT_OPTIONAL=0 ;;
-        -h|--help)        sed -n '2,10p' "$0"; exit 0 ;;
+        -h|--help)        sed -n '2,16p' "$0"; exit 0 ;;
     esac
 done
 
@@ -143,26 +148,32 @@ _install_set() {
     fi
 }
 
-# want_optional <desc> : should this optional group be installed?
-#   --with-optional -> yes; --no-optional -> no; manual/TTY -> ask; automatic -> no.
+# want_optional <desc> [auto_default] : should this optional group be installed?
+#   --with-optional -> yes; --no-optional -> no; manual/TTY -> ask.
+#   automatic/non-interactive -> use auto_default ("skip" [default] or "install").
+#   (dev groups pass "install" because --dev is itself the explicit opt-in.)
 want_optional() {
+    local desc="$1" auto_default="${2:-skip}"
     case "$WANT_OPTIONAL" in
         1) return 0 ;;
         0) return 1 ;;
     esac
-    { [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; } && return 1   # automatic/non-interactive: skip
-    ask_yes "Optional — install $1?"
+    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
+        [ "$auto_default" = install ] && return 0 || return 1
+    fi
+    ask_yes "Optional — install $desc?"
 }
 
-# install_optional <file> : walk "# group: name | desc" sections and install the wanted ones.
+# install_optional <file> [auto_default] : walk "# group: name | desc" sections and
+# install the wanted ones. auto_default is forwarded to want_optional.
 install_optional() {
-    local file="$1"
+    local file="$1" auto_default="${2:-skip}"
     [ -f "$file" ] || return 0
     local gname="" gdesc="" line
     local -a gpkgs=()
     _flush_group() {
         [ -n "$gname" ] || return 0
-        if want_optional "$gdesc"; then
+        if want_optional "$gdesc" "$auto_default"; then
             info "Optional group '$gname' — installing"
             _install_set "$gname" "${gpkgs[@]}"
         else
@@ -191,7 +202,7 @@ DID_PKG=0
 if have pacman; then
     if ask_yes "Install packages now (official + AUR via yay; full -Syu upgrade)?"; then
         install_pkgs "$DOT_ROOT/bootstrap/packages.txt" "base"
-        [ "$WANT_DEV" -eq 1 ] && install_pkgs "$DOT_ROOT/bootstrap/dev-packages.txt" "dev"
+        # dev tooling is installed below (grouped, with the other optional groups)
         # ydotool daemon (virtual keyboard: clipboard paste, on-screen keyboard)
         have ydotoold && systemctl --user enable --now ydotool 2>/dev/null || \
             warn "couldn't enable ydotool daemon (needed for paste/OSK) — check uinput perms"
@@ -220,6 +231,11 @@ if have pacman; then
         # Optional groups (browser, fingerprint, AI, backups, recording, wallpaper extras).
         # Asked per-group in manual mode; skipped in automatic mode unless --with-optional.
         install_optional "$DOT_ROOT/bootstrap/optional-packages.txt"
+
+        # Dev tooling (editors / languages / containers / db / android / face-unlock),
+        # only when --dev is given. Same grouping: manual asks per group; automatic+--dev
+        # installs all (--dev is the opt-in); --no-optional skips even with --dev.
+        [ "$WANT_DEV" -eq 1 ] && install_optional "$DOT_ROOT/bootstrap/dev-packages.txt" install
     fi
 else
     warn "Not an Arch system — install packages from bootstrap/*.txt manually"
