@@ -81,3 +81,7 @@ rsync
 qrencode
 # `checkupdates` for the updates indicator (services/Updates.qml)
 pacman-contrib
+# `magick identify` — the wallpaper cover-scale in modules/ii/background/Background.qml
+# reads image dimensions with this. WITHOUT it the scale can't be computed and the
+# wallpaper doesn't fill the screen (black borders). NEEDED, not optional.
+imagemagick
