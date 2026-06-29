@@ -6,11 +6,51 @@ import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 
 WindowDialog {
     id: root
     backgroundHeight: 600
     backgroundWidth: 400
+
+    // Parse a standard Wi-Fi QR payload: WIFI:S:<ssid>;T:<WPA|WEP|nopass>;P:<pw>;H:<bool>;;
+    // Handles backslash escaping of ; : , and \. Returns {ssid,pass,hidden} or null.
+    function parseWifiQr(s) {
+        if (!s || s.indexOf("WIFI:") !== 0) return null;
+        s = s.slice(5);
+        const fields = {};
+        let buf = "", key = null;
+        for (let p = 0; p < s.length; p++) {
+            const c = s[p];
+            if (c === "\\") { buf += (s[p + 1] ?? ""); p++; continue; }
+            if (c === ";") { if (key !== null) fields[key] = buf; key = null; buf = ""; continue; }
+            if (c === ":" && key === null) { key = buf; buf = ""; continue; }
+            buf += c;
+        }
+        if (key !== null) fields[key] = buf;
+        if (!fields.S) return null;
+        return { ssid: fields.S, pass: fields.P || "", hidden: (fields.H || "").toLowerCase() === "true" };
+    }
+
+    // Reads decoded codes from zbarcam (which shows the webcam feed so you can aim).
+    // On the first valid Wi-Fi QR: stop the camera and connect via the normal path.
+    Process {
+        id: qrScanProc
+        command: ["zbarcam", "--raw", "--prefer-largest", "-q"]
+        stdout: SplitParser {
+            onRead: data => {
+                const parsed = root.parseWifiQr(data.trim());
+                if (!parsed) return;
+                qrScanProc.running = false; // closes the camera window
+                qrStatus.text = Translation.tr("Connecting to %1…").arg(parsed.ssid);
+                Network.connectHiddenNetwork(parsed.ssid, parsed.pass);
+            }
+        }
+        onExited: (code, status) => {
+            if (code !== 0 && qrStatus.text.length === 0)
+                qrStatus.text = Translation.tr("Scanner closed — is the camera free? (needs zbar)");
+        }
+    }
 
     // Scan on open so the list is fresh, then keep refreshing while open. Show the
     // cached list instantly; don't gate the open-scan on wifiEnabled (not yet known
@@ -172,12 +212,51 @@ WindowDialog {
         }
     }
 
+    ColumnLayout { // Scan a Wi-Fi QR with the webcam to connect
+        id: qrSection
+        Layout.fillWidth: true
+        Layout.topMargin: 2
+        visible: Network.wifiEnabled
+        spacing: 6
+
+        DialogButton {
+            Layout.fillWidth: true
+            enabled: !qrScanProc.running
+            buttonText: qrScanProc.running ? Translation.tr("Point the camera at a Wi-Fi QR…")
+                                           : Translation.tr("Scan Wi-Fi QR code")
+            colBackground: Appearance.colors.colLayer4
+            colBackgroundHover: Appearance.colors.colLayer4Hover
+            colRipple: Appearance.colors.colLayer4Active
+            onClicked: { qrStatus.text = ""; qrScanProc.running = true; }
+        }
+        RowLayout {
+            visible: qrScanProc.running || qrStatus.text.length > 0
+            Layout.fillWidth: true
+            spacing: 8
+            StyledText {
+                id: qrStatus
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                elide: Text.ElideRight
+                text: ""
+            }
+            DialogButton {
+                visible: qrScanProc.running
+                buttonText: Translation.tr("Cancel")
+                onClicked: qrScanProc.running = false
+            }
+        }
+    }
+
     WindowDialogSeparator {}
     WindowDialogButtonRow {
         Item { Layout.fillWidth: true }
         DialogButton {
             buttonText: Translation.tr("Done")
-            onClicked: root.dismiss()
+            onClicked: { qrScanProc.running = false; root.dismiss(); }
         }
     }
+
+    Component.onDestruction: qrScanProc.running = false // never leave the camera running
 }
