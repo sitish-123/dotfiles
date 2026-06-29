@@ -60,6 +60,12 @@ ApplicationWindow {
             icon: "power_settings_new",
             component: "modules/settings/PowerConfig.qml"
         },
+        {
+            section: Translation.tr("System"),
+            name: Translation.tr("Updates"),
+            icon: "system_update",
+            component: "modules/settings/UpdatesConfig.qml"
+        },
         // --- Customization ---
         {
             section: Translation.tr("Customization"),
