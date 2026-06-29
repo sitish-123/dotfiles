@@ -11,9 +11,10 @@
 #   --dev       : also offer the dev-packages.txt groups (editors / languages /
 #                 containers / db / android / face-unlock). Manual mode asks per
 #                 group; automatic mode installs them all (--dev is the opt-in).
-#   --with-optional / --no-optional : install or skip ALL optional groups (base AND
-#                 dev) without asking. Default: ask per group in manual mode, and in
-#                 automatic mode skip base groups but install dev groups when --dev.
+#   --with-optional / --no-optional : install or skip ALL optional packages (base AND
+#                 dev) without asking. Default: in manual mode ask ONE gate question for
+#                 optional software, then (if accepted) ask per package; automatic mode
+#                 skips base optional and installs dev packages only when --dev.
 source "$(dirname "$0")/lib/common.sh"
 
 WANT_SYSTEM=1; WANT_DEV=0; ASSUME_YES=""; WANT_OPTIONAL=""
@@ -148,51 +149,63 @@ _install_set() {
     fi
 }
 
-# want_optional <desc> [auto_default] : should this optional group be installed?
-#   --with-optional -> yes; --no-optional -> no; manual/TTY -> ask.
-#   automatic/non-interactive -> use auto_default ("skip" [default] or "install").
-#   (dev groups pass "install" because --dev is itself the explicit opt-in.)
-want_optional() {
-    local desc="$1" auto_default="${2:-skip}"
-    case "$WANT_OPTIONAL" in
-        1) return 0 ;;
-        0) return 1 ;;
-    esac
-    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
-        [ "$auto_default" = install ] && return 0 || return 1
-    fi
-    ask_yes "Optional — install $desc?"
-}
-
-# install_optional <file> [auto_default] : walk "# group: name | desc" sections and
-# install the wanted ones. auto_default is forwarded to want_optional.
+# install_optional <file> [auto_default] [gate_label] : two-level opt-in.
+#   1) ONE gate question for the whole file. Decline it and NOTHING else is asked or
+#      installed — no per-package prompts at all.
+#      --with-optional -> gate yes (and install every package, no per-pkg prompts);
+#      --no-optional   -> gate no;
+#      automatic/non-interactive -> auto_default ("skip" [default] / "install");
+#      manual/TTY      -> ask once.
+#   2) If the gate passed AND we're interactive (not forced/automatic), ask per PACKAGE,
+#      showing that package's group description for context. Forced/automatic installs all.
+# Walks "# group: name | desc" sections to attach a description to each package line.
 install_optional() {
-    local file="$1" auto_default="${2:-skip}"
+    local file="$1" auto_default="${2:-skip}" gate_label="${3:-optional packages}"
     [ -f "$file" ] || return 0
-    local gname="" gdesc="" line
-    local -a gpkgs=()
-    _flush_group() {
-        [ -n "$gname" ] || return 0
-        if want_optional "$gdesc" "$auto_default"; then
-            info "Optional group '$gname' — installing"
-            _install_set "$gname" "${gpkgs[@]}"
-        else
-            info "Optional group '$gname' — skipped"
-        fi
-        gname=""; gdesc=""; gpkgs=()
-    }
+
+    # --- 1) the single gate -------------------------------------------------
+    # gate=0 -> proceed, gate=1 -> skip everything. ask_per=1 -> prompt per package.
+    local gate ask_per=0
+    case "$WANT_OPTIONAL" in
+        1) gate=0 ;;                                   # --with-optional: all, no prompts
+        0) gate=1 ;;                                   # --no-optional: none
+        *) if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
+               [ "$auto_default" = install ] && gate=0 || gate=1
+           elif ask_yes "Install $gate_label? (you'll pick each one)"; then
+               gate=0; ask_per=1
+           else
+               gate=1
+           fi ;;
+    esac
+    if [ "$gate" -ne 0 ]; then
+        info "Optional ($gate_label) — skipped"
+        return 0
+    fi
+
+    # --- 2) gate passed: collect packages (per-package ask when interactive) -
+    local gdesc="" line pkg
+    local -a chosen=()
     while IFS= read -r line; do
-        if [[ "$line" =~ ^#[[:space:]]*group:[[:space:]]*([^|]+)\|[[:space:]]*(.*)$ ]]; then
-            _flush_group
-            gname="$(echo "${BASH_REMATCH[1]}" | sed 's/[[:space:]]*$//')"
-            gdesc="${BASH_REMATCH[2]}"
+        if [[ "$line" =~ ^#[[:space:]]*group:[[:space:]]*[^|]+\|[[:space:]]*(.*)$ ]]; then
+            gdesc="$(echo "${BASH_REMATCH[1]}" | sed 's/[[:space:]]*$//')"
         elif [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "${line//[[:space:]]/}" ]]; then
             continue
         else
-            gpkgs+=("$line")
+            pkg="${line#aur:}"
+            if [ "$ask_per" -eq 1 ]; then
+                ask_yes "  $pkg — ${gdesc:-optional}?" && chosen+=("$line")
+            else
+                chosen+=("$line")                      # forced/automatic: take all
+            fi
         fi
     done < "$file"
-    _flush_group
+
+    if [ "${#chosen[@]}" -gt 0 ]; then
+        info "Optional ($gate_label) — installing ${#chosen[@]} package(s)"
+        _install_set "optional" "${chosen[@]}"
+    else
+        info "Optional ($gate_label) — nothing selected"
+    fi
 }
 
 info "dotfiles install — root: $DOT_ROOT"
@@ -228,14 +241,17 @@ if have pacman; then
             die  "Stopping before symlink/plugins so the machine is left as-is, not half-converted."
         fi
 
-        # Optional groups (browser, fingerprint, AI, backups, recording, wallpaper extras).
-        # Asked per-group in manual mode; skipped in automatic mode unless --with-optional.
-        install_optional "$DOT_ROOT/bootstrap/optional-packages.txt"
+        # Optional software (browser, fingerprint, AI, backups, recording, wallpaper extras).
+        # ONE gate question; if you accept it, you're asked per package. Declined or in
+        # automatic mode -> nothing here is installed (override with --with-optional).
+        install_optional "$DOT_ROOT/bootstrap/optional-packages.txt" skip \
+            "optional packages (browser, fingerprint, AI, backups, recording, wallpaper extras)"
 
         # Dev tooling (editors / languages / containers / db / android / face-unlock),
-        # only when --dev is given. Same grouping: manual asks per group; automatic+--dev
-        # installs all (--dev is the opt-in); --no-optional skips even with --dev.
-        [ "$WANT_DEV" -eq 1 ] && install_optional "$DOT_ROOT/bootstrap/dev-packages.txt" install
+        # only when --dev is given. Same two-level flow: manual asks the gate then per
+        # package; automatic+--dev installs all (--dev is the opt-in); --no-optional skips.
+        [ "$WANT_DEV" -eq 1 ] && install_optional "$DOT_ROOT/bootstrap/dev-packages.txt" install \
+            "dev packages (editors / languages / containers / db / android / face-unlock)"
     fi
 else
     warn "Not an Arch system — install packages from bootstrap/*.txt manually"
