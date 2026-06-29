@@ -22,7 +22,10 @@ jobs:
         run: |
           fail=0
           while IFS= read -r f; do
-            bash -n "$f" || { echo "::error file=$f::bash syntax error"; fail=1; }
+            # Some scripts embed a raw data section after a `### DATA ###` marker
+            # (e.g. fuzzel-emoji.sh reads its own tail) — lint only the shell part.
+            bash -n <(sed '/^### DATA ###$/,$d' "$f") \
+              || { echo "::error file=$f::bash syntax error"; fail=1; }
           done < <(find . -name '*.sh' -not -path './pkgs/*')
           exit $fail
 
