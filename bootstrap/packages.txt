@@ -51,3 +51,5 @@ git
 jq
 bc
 rsync
+# Wi-Fi "Share" QR generation (sidebar + settings Network page)
+qrencode
