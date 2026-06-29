@@ -6,17 +6,21 @@
 #   automatic (--auto/-y) : every phase runs with --noconfirm, no questions asked.
 #   manual    (--manual/-i): confirm before each phase, AND pacman/yay prompt per
 #                            transaction so you can read conflicts and pick providers.
-# Other flags: --no-system (skip /etc tweaks), --dev (also install dev-packages.txt).
+# Other flags: --no-system (skip /etc tweaks), --dev (also install dev-packages.txt),
+#   --with-optional / --no-optional (install or skip ALL optional groups without asking;
+#   default: ask per group in manual mode, skip them in automatic mode).
 source "$(dirname "$0")/lib/common.sh"
 
-WANT_SYSTEM=1; WANT_DEV=0; ASSUME_YES=""
+WANT_SYSTEM=1; WANT_DEV=0; ASSUME_YES=""; WANT_OPTIONAL=""
 for a in "$@"; do
     case "$a" in
-        --no-system)     WANT_SYSTEM=0 ;;
-        --dev)           WANT_DEV=1 ;;
-        --auto|-y|--yes) ASSUME_YES=1 ;;
-        --manual|-i)     ASSUME_YES=0 ;;
-        -h|--help)       sed -n '2,10p' "$0"; exit 0 ;;
+        --no-system)      WANT_SYSTEM=0 ;;
+        --dev)            WANT_DEV=1 ;;
+        --auto|-y|--yes)  ASSUME_YES=1 ;;
+        --manual|-i)      ASSUME_YES=0 ;;
+        --with-optional)  WANT_OPTIONAL=1 ;;
+        --no-optional)    WANT_OPTIONAL=0 ;;
+        -h|--help)        sed -n '2,10p' "$0"; exit 0 ;;
     esac
 done
 
@@ -126,6 +130,60 @@ install_pkgs() {
     fi
 }
 
+# _install_set <label> <pkgs...> : install a mixed official/aur list (splits on aur:).
+_install_set() {
+    local label="$1"; shift
+    local off=() aur=() p
+    for p in "$@"; do case "$p" in aur:*) aur+=("${p#aur:}") ;; *) off+=("$p") ;; esac; done
+    [ "${#off[@]}" -gt 0 ] && install_batch pacman "$label official" "${off[@]}"
+    if [ "${#aur[@]}" -gt 0 ]; then
+        have yay || ensure_yay || true
+        if have yay; then install_batch yay "$label AUR" "${aur[@]}"
+        else warn "No AUR helper — skipped: ${aur[*]}"; FAILED_PKGS+=("${aur[@]}"); fi
+    fi
+}
+
+# want_optional <desc> : should this optional group be installed?
+#   --with-optional -> yes; --no-optional -> no; manual/TTY -> ask; automatic -> no.
+want_optional() {
+    case "$WANT_OPTIONAL" in
+        1) return 0 ;;
+        0) return 1 ;;
+    esac
+    { [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; } && return 1   # automatic/non-interactive: skip
+    ask_yes "Optional — install $1?"
+}
+
+# install_optional <file> : walk "# group: name | desc" sections and install the wanted ones.
+install_optional() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    local gname="" gdesc="" line
+    local -a gpkgs=()
+    _flush_group() {
+        [ -n "$gname" ] || return 0
+        if want_optional "$gdesc"; then
+            info "Optional group '$gname' — installing"
+            _install_set "$gname" "${gpkgs[@]}"
+        else
+            info "Optional group '$gname' — skipped"
+        fi
+        gname=""; gdesc=""; gpkgs=()
+    }
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^#[[:space:]]*group:[[:space:]]*([^|]+)\|[[:space:]]*(.*)$ ]]; then
+            _flush_group
+            gname="$(echo "${BASH_REMATCH[1]}" | sed 's/[[:space:]]*$//')"
+            gdesc="${BASH_REMATCH[2]}"
+        elif [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "${line//[[:space:]]/}" ]]; then
+            continue
+        else
+            gpkgs+=("$line")
+        fi
+    done < "$file"
+    _flush_group
+}
+
 info "dotfiles install — root: $DOT_ROOT"
 
 # 1) Packages ----------------------------------------------------------------
@@ -158,6 +216,10 @@ if have pacman; then
             warn "    sudo pacman -Syyu               # if it's 404s from stale mirrors, then re-run ./install.sh"
             die  "Stopping before symlink/plugins so the machine is left as-is, not half-converted."
         fi
+
+        # Optional groups (browser, fingerprint, AI, backups, recording, wallpaper extras).
+        # Asked per-group in manual mode; skipped in automatic mode unless --with-optional.
+        install_optional "$DOT_ROOT/bootstrap/optional-packages.txt"
     fi
 else
     warn "Not an Arch system — install packages from bootstrap/*.txt manually"

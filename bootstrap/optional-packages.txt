@@ -1,0 +1,29 @@
+# OPTIONAL package groups — NOT part of the core desktop.
+# install.sh asks before installing each group (manual mode / interactive terminal),
+# and SKIPS them all in automatic mode. Override either way with:
+#   --with-optional   install every group, no prompts
+#   --no-optional     skip every group
+#
+# Format: a line "# group: <name> | <description>" starts a group; the package lines
+# under it (one per line, `aur:` prefix for AUR) belong to that group until the next
+# header. Comment lines and blanks are ignored.
+
+# group: browser | Chromium browser (opened by the SUPER+B / SUPER+H keybinds)
+chromium
+
+# group: fingerprint | Fingerprint unlock (fprintd)
+fprintd
+
+# group: ai | Local AI models for the sidebar assistant — ollama (large download)
+ollama
+
+# group: backups | Timeshift system snapshots (+ cronie to run them on schedule)
+timeshift
+cronie
+
+# group: screen-recording | GPU/VAAPI screen recorder — replay buffer, region capture
+gpu-screen-recorder
+
+# group: wallpaper-extras | Video wallpapers (mpvpaper) + AI wallpaper upscaling (upscayl)
+aur:mpvpaper
+aur:upscayl-bin

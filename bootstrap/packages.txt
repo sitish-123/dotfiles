@@ -44,32 +44,13 @@ aur:kde-material-you-colors
 # ships (used by switchwall.sh: gsettings gtk-theme adw-gtk3 / adw-gtk3-dark) is unchanged.
 adw-gtk-theme
 
-# --- browser (SUPER+B / SUPER+H keybind) ---
-chromium
-
-# --- biometric / fingerprint unlock ---
-# Fingerprint unlock. (Face unlock via howdy is opt-in — see bootstrap/dev-packages.txt;
-# it pulls ~6 GB of cuda/cudnn through python-dlib, so it's not in the base install.)
-fprintd
-
-# --- backup ---
-# System snapshots. Pick the backup device on the new machine (UUID is machine-specific).
-timeshift
-# cron daemon — timeshift schedules its snapshots via cron
-cronie
-
-# --- AI sidebar (ollama runs local models) ---
-ollama
-
-# --- wallpaper extras ---
-# Video wallpapers + wallpaper upscaling (both optional, called behind guards)
-aur:mpvpaper
-aur:upscayl-bin
-
-# --- screen recording (GPU/VAAPI accelerated; pause/resume + replay buffer) ---
-aur:gpu-screen-recorder
-# slurp = region selection for region recordings (also used by screenshot keybinds)
+# --- screenshots: region selection (also used by the optional screen recorder) ---
 slurp
+
+# NOTE: optional software — browser, fingerprint unlock, backups, AI (ollama), screen
+# recording, video/upscaled wallpapers — lives in bootstrap/optional-packages.txt.
+# install.sh asks before each group (manual mode) and skips them in automatic mode
+# (override with --with-optional / --no-optional). This file is the always-installed core.
 
 # --- launcher / clipboard / input (list explicitly; --needed dedupes) ---
 cliphist

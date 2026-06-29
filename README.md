@@ -59,10 +59,17 @@ installed — e.g. an unresolvable conflict — it **stops before touching your 
 rather than leaving a half-converted machine. A single conflicting package no longer
 aborts the whole batch: the rest install and the culprit is reported at the end.
 
+**Core vs optional.** `bootstrap/packages.txt` is the always-installed **core** (the
+desktop itself + toolchain + small utilities). Optional software lives in
+`bootstrap/optional-packages.txt`, grouped — **browser** (chromium), **fingerprint**
+(fprintd), **ai** (ollama), **backups** (timeshift), **screen-recording**, and
+**wallpaper-extras** (mpvpaper/upscayl). In manual mode `install.sh` asks before each
+group; in automatic mode it skips them. Force with `--with-optional` / `--no-optional`.
+Face unlock (`howdy`, ~6 GB cuda/cudnn) is opt-in via `./install.sh --dev`.
+
 `install.sh` backs up any existing `~/.config/{hypr,quickshell,matugen,illogical-impulse}`
 before symlinking ours in, and enables the `ydotool` user service (needed for
-clipboard-paste and the on-screen keyboard). Face unlock (`howdy`) is **opt-in** via
-`./install.sh --dev` — it pulls ~6 GB of cuda/cudnn.
+clipboard-paste and the on-screen keyboard).
 
 ## Keep it in sync
 
