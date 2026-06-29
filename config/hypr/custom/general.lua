@@ -1,4 +1,8 @@
-monitor = "eDP-1,2880x1800@120,auto,1.5"
+-- Portable default: every output uses its NATIVE mode + an auto-picked scale, so this
+-- adapts per machine instead of forcing one laptop's panel. On this 2880x1800@120
+-- laptop "preferred" still resolves to 2880x1800@120. To pin a specific machine, set
+-- e.g. monitor = "eDP-1,2880x1800@120,auto,1.5" (but keep that out of the shared repo).
+monitor = ",preferred,auto,auto"
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- Overview plugin switcher

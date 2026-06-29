@@ -1,10 +1,11 @@
 -- MONITOR CONFIG
+-- Portable: native resolution/refresh + auto scale per machine (not a hardcoded panel).
+-- A per-machine override can live in custom/general.lua.
 hl.monitor({
     output = "",
-    mode = "2880x1800@120",
+    mode = "preferred",
     position = "auto",
-    scale = 1.6
-    
+    scale = "auto"
 })
 
 -- NOTE: 3-finger "move window" gesture moved to ~/.config/hypr/custom/general.lua
