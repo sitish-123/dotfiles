@@ -63,20 +63,54 @@ _pm() {
     esac
 }
 
+# detect_conflict <helper> <pkg> : print the name of the INSTALLED package that blocks
+# <pkg> from installing, or nothing. We re-run the install answering "no" to every prompt
+# (printf 'n') so pacman/yay reveals its "X and Y are in conflict. Remove Y? [y/N]" line
+# without actually changing anything, then parse the package to remove out of it.
+detect_conflict() {
+    local helper="$1" pkg="$2" out
+    out="$( printf 'n\nn\nn\n' | { [ "$helper" = pacman ] && sudo pacman -S --needed "$pkg" || yay -S --needed "$pkg"; } 2>&1 )"
+    # "<new> and <installed> are in conflict. Remove <installed>?" — prefer the Remove line.
+    printf '%s\n' "$out" | grep -oiE 'Remove [[:alnum:]@._+-]+' | head -1 | awk '{print $2}' && return 0
+    printf '%s\n' "$out" | grep -oiE '[[:alnum:]@._+-]+ and [[:alnum:]@._+-]+ are in conflict' | head -1 | awk '{print $3}'
+}
+
 # resolve_failure <helper> <pkg> : a package failed to install (usually a conflict).
-# On a real terminal, offer to retry INTERACTIVELY — running pacman/yay WITHOUT
-# --noconfirm, so their own "X and Y are in conflict. Remove Y? [y/N]" prompt lets you
-# remove the conflicting package and continue — or skip it, or abort the whole run.
-# Returns 0 if the package ended up installed, 1 if skipped. Non-interactive -> skip.
+# On a real terminal, offer to:
+#   [r] retry INTERACTIVELY — pacman/yay WITHOUT --noconfirm, so their own
+#       "X and Y are in conflict. Remove Y? [y/N]" prompt removes the conflict (dep-checked).
+#   [f] FORCE-remove the conflicting installed package with `pacman -Rdd` then retry. -Rdd
+#       skips ALL dependency checks, so it can break packages that depend on the removed one
+#       — we auto-detect the culprit, show it, and require an explicit y before doing it.
+#   [s] skip   [a] abort.
+# Returns 0 if the package ended up installed, 1 if skipped. Non-interactive -> skip
+# (we never fire -Rdd unattended — too easy to brick a system).
 resolve_failure() {
-    local helper="$1" pkg="$2" ans
+    local helper="$1" pkg="$2" ans conflict yn
     [ -t 0 ] || return 1
     while true; do
-        printf '\033[1;33m!!\033[0m %s failed (likely a conflict). [r]etry interactively / [s]kip / [a]bort? [r/s/a] ' "$pkg"
+        printf '\033[1;33m!!\033[0m %s failed (likely a conflict). [r]etry interactively / [f]orce-remove conflict (-Rdd) / [s]kip / [a]bort? [r/f/s/a] ' "$pkg"
         read -r ans || ans=s
         case "${ans:-r}" in
             r|R) if [ "$helper" = pacman ]; then sudo pacman -S --needed "$pkg"; else yay -S --needed "$pkg"; fi \
                     && return 0 || warn "$pkg still not installed — try again, skip, or abort" ;;
+            f|F) info "Detecting which installed package conflicts with $pkg…"
+                 conflict="$(detect_conflict "$helper" "$pkg")"
+                 if [ -z "$conflict" ]; then
+                     printf '\033[1;33m??\033[0m couldn'\''t auto-detect it. Enter the package to remove with -Rdd (empty to cancel): '
+                     read -r conflict
+                 fi
+                 [ -n "$conflict" ] || { warn "no package given — not removing"; continue; }
+                 warn "About to: sudo pacman -Rdd --noconfirm $conflict   (skips dependency checks — may break packages needing '$conflict')"
+                 printf '\033[1;36m?\033[0m Force-remove '\''%s'\'' and retry %s? [y/N] ' "$conflict" "$pkg"
+                 read -r yn
+                 case "${yn:-N}" in
+                     y|Y) sudo pacman -Rdd --noconfirm "$conflict" || { warn "removal of $conflict failed"; continue; }
+                          if [ "$helper" = pacman ]; then sudo pacman -S --needed --noconfirm "$pkg"; else yay -S --needed --noconfirm "$pkg"; fi \
+                              && { ok "$pkg installed after removing $conflict"; return 0; } \
+                              || warn "$pkg still failing after removing $conflict — try again, skip, or abort" ;;
+                     *)   info "cancelled — $conflict left installed" ;;
+                 esac ;;
             s|S) return 1 ;;
             a|A) die "Aborted at conflicting package: $pkg (resolve it, then re-run ./install.sh)" ;;
             *)   : ;;
