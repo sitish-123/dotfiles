@@ -47,6 +47,7 @@ if [ -n "$BROWSER" ]; then
     echo ":: Web apps via $BROWSER"
     write_pwa "Gemini"  "https://gemini.google.com/app" "Gemini"  "gemini.svg"
     write_pwa "ChatGPT" "https://chatgpt.com/"          "ChatGPT" "chatgpt.svg"
+    write_pwa "Claude"  "https://claude.ai/new"         "Claude"  "claude.svg"
 else
     echo "!! No Chromium-based browser found — skipping Gemini/ChatGPT web apps."
     echo "   Install one (e.g. the optional 'browser' group: chromium), then re-run this."

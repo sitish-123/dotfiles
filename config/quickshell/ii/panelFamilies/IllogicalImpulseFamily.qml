@@ -40,7 +40,7 @@ Scope {
     PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: ScreenTranslator {} }
     PanelLoader { component: SessionScreen {} }
-    PanelLoader { component: SidebarLeft {} }
+    // SidebarLeft removed — replaced by the AI panel (SUPER+A, see ai-sidebar.sh).
     PanelLoader { component: SidebarRight {} }
     PanelLoader { extraCondition: Config.options.bar.vertical; component: VerticalBar {} }
     PanelLoader { component: WallpaperSelector {} }

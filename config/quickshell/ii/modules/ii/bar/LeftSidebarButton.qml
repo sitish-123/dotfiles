@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -8,11 +9,7 @@ RippleButton {
     id: root
 
     property bool showPing: false
-
-    property bool aiChatEnabled: Config.options.policies.ai !== 0
-    property bool translatorEnabled: Config.options.sidebar.translator.enable
-    property bool animeEnabled: Config.options.policies.weeb !== 0
-    visible: aiChatEnabled || translatorEnabled || animeEnabled
+    visible: true // AI panel launcher (left sidebar was replaced)
 
     property real buttonPadding: 5
     implicitWidth: distroIcon.width + buttonPadding * 2
@@ -23,33 +20,10 @@ RippleButton {
     colBackgroundToggled: Appearance.colors.colSecondaryContainer
     colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
     colRippleToggled: Appearance.colors.colSecondaryContainerActive
-    toggled: GlobalStates.sidebarLeftOpen
 
+    // Opens the AI panel (Gemini/ChatGPT/Claude tab group) — same script as SUPER+A.
     onPressed: {
-        GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen;
-    }
-
-    Connections {
-        target: Ai
-        function onResponseFinished() {
-            if (GlobalStates.sidebarLeftOpen) return;
-            root.showPing = true;
-        }
-    }
-
-    Connections {
-        target: Booru
-        function onResponseFinished() {
-            if (GlobalStates.sidebarLeftOpen) return;
-            root.showPing = true;
-        }
-    }
-
-    Connections {
-        target: GlobalStates
-        function onSidebarLeftOpenChanged() {
-            root.showPing = false;
-        }
+        Quickshell.execDetached(["bash", "-lc", "~/.config/hypr/hyprland/scripts/ai-sidebar.sh"]);
     }
 
     CustomIcon {

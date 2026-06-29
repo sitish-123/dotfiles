@@ -23,10 +23,10 @@ hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"),
 hl.bind("SUPER + Tab", hl.dsp.global("quickshell:searchToggle"), { description = "Shell: Toggle launcher" })
 hl.bind("SUPER + V", hl.dsp.global("quickshell:overviewClipboardToggle"))
 hl.bind("SUPER + Period", hl.dsp.global("quickshell:overviewEmojiToggle"))
-hl.bind("SUPER + A", hl.dsp.global("quickshell:sidebarLeftToggle"), { description = "Shell: Toggle left sidebar" })
-hl.bind("SUPER + ALT + A", hl.dsp.global("quickshell:sidebarLeftToggleDetach"))
---hl.bind("SUPER + B", hl.dsp.global("quickshell:sidebarLeftToggle"))
-hl.bind("SUPER + O", hl.dsp.global("quickshell:sidebarLeftToggle"))
+-- Left "sidebar" is now the AI panel (Gemini/ChatGPT/Claude tab group). SUPER+A toggles
+-- it like the old sidebar; SUPER+SHIFT+A flips between the provider tabs.
+hl.bind("SUPER + A", hl.dsp.exec_cmd("~/.config/hypr/hyprland/scripts/ai-sidebar.sh"), { description = "AI panel: toggle (Gemini/ChatGPT/Claude)" })
+hl.bind("SUPER + SHIFT + A", hl.dsp.exec_cmd("hyprctl dispatch changegroupactive f"), { description = "AI panel: next assistant tab" })
 hl.bind("SUPER + N", hl.dsp.global("quickshell:sidebarRightToggle"), { description = "Shell: Toggle right sidebar" })
 hl.bind("SUPER + Slash", hl.dsp.global("quickshell:cheatsheetToggle"), { description = "Shell: Toggle cheatsheet" })
 hl.bind("SUPER + K", hl.dsp.global("quickshell:oskToggle"), { description = "Shell: Toggle on-screen keyboard" })

@@ -61,6 +61,7 @@
         "terminal": "kitty",
         "update": "kitty -1 --hold=yes fish -i -c 'pkexec pacman -Syu'",
         "updateAll": "kitty -1 --hold=yes bash -c 'cd $(dirname $(dirname $(readlink -f ~/.config/quickshell))) && ./update-all.sh'",
+        "updateDotfiles": "cd $(dirname $(dirname $(readlink -f ~/.config/quickshell))) && notify-send -a Dotfiles Dotfiles 'Updating…' && GIT_TERMINAL_PROMPT=0 ./update.sh >/tmp/dotfiles-update.log 2>&1 && notify-send -a Dotfiles Dotfiles 'Updated ✓ — reloaded' || notify-send -a Dotfiles -u critical Dotfiles 'Update failed — see /tmp/dotfiles-update.log'",
         "volumeMixer": "~/.config/hypr/hyprland/scripts/launch_first_available.sh \"pavucontrol-qt\" \"pavucontrol\""
     },
     "audio": {
@@ -81,7 +82,7 @@
             "workspaceZoom": 1.11
         },
         "thumbnailPath": "",
-        "wallpaperPath": "/home/sitish/Pictures/Wallpapers/wall1.jpg",
+        "wallpaperPath": "/home/sitish/Pictures/Wallpapers/Angel1.png",
         "widgets": {
             "clock": {
                 "cookie": {
@@ -133,7 +134,7 @@
     },
     "bar": {
         "autoHide": {
-            "enable": false,
+            "enable": true,
             "hoverRegionWidth": 2,
             "pushWindows": false,
             "showWhenPressingSuper": {
@@ -141,7 +142,7 @@
                 "enable": true
             }
         },
-        "borderless": false,
+        "borderless": true,
         "bottom": true,
         "cornerStyle": 1,
         "floatStyleShadow": true,
@@ -241,6 +242,12 @@
     "hacks": {
         "arbitraryRaceConditionDelay": 20
     },
+    "idle": {
+        "autoSuspend": true,
+        "lockMinutes": 5,
+        "screenOffMinutes": 10,
+        "suspendMinutes": 15
+    },
     "interactions": {
         "deadPixelWorkaround": {
             "enable": false
@@ -338,7 +345,7 @@
     },
     "panelFamily": "ii",
     "policies": {
-        "ai": 0,
+        "ai": 1,
         "weeb": 0
     },
     "regionSelector": {
@@ -367,7 +374,18 @@
         "updateInterval": 3000
     },
     "screenRecord": {
-        "savePath": "/home/sitish/Videos"
+        "audio": "system",
+        "audioCodec": "opus",
+        "extension": "mp4",
+        "extraArgs": "",
+        "fps": "60",
+        "indicator": "smart",
+        "micSource": "",
+        "quality": "very_high",
+        "replayDuration": 30,
+        "savePath": "/home/sitish/Videos",
+        "systemSource": "",
+        "videoCodec": "auto"
     },
     "screenSnip": {
         "savePath": ""
@@ -529,12 +547,6 @@
             "nm-applet"
         ],
         "showItemId": false
-    },
-    "idle": {
-        "autoSuspend": true,
-        "lockMinutes": 5,
-        "screenOffMinutes": 10,
-        "suspendMinutes": 15
     },
     "updates": {
         "adviseUpdateThreshold": 75,
