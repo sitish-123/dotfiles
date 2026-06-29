@@ -13,11 +13,9 @@ import Quickshell.Hyprland
 
 Scope {
     id: overviewScope
+    // This is the launcher pill only — a single instance whose state (app / clipboard /
+    // emoji) transforms in place. The workspace overview grid was removed entirely.
     property bool dontAutoCancelSearch: false
-    // launcherMode: show ONLY the floating search bar (no workspace grid).
-    // Set by the tap-Super (searchToggleRelease) shortcut; cleared by the
-    // workspace-overview shortcuts.
-    property bool launcherMode: false
 
     PanelWindow {
         id: panelWindow
@@ -39,11 +37,18 @@ Scope {
             item: GlobalStates.overviewOpen ? columnLayout : null
         }
 
-        // Size the window to its content (top-centered) instead of fullscreen, so
-        // HyprlandFocusGrab has an "outside" to detect — clicking away now dismisses
-        // it (a fullscreen window has no outside, which is why tap-to-close failed).
+        // FIXED-SIZE SURFACE (do not bind size to content). The pill's morph animates
+        // columnLayout's implicit size every frame; if the *window* tracked that, the
+        // Wayland layer surface would request a new size every frame — each one a
+        // configure↔ack_configure round-trip + EGL buffer realloc + mask/shadow-cache
+        // rebuild. That handshake can't keep up at 120Hz and pins the morph near 30fps.
+        // Instead we give the surface one stable size and let the content animate inside
+        // it (input is still limited to the pill via mask:Region, so click-away dismiss
+        // and pass-through both keep working).
         anchors {
             top: true
+            left: true
+            right: true
         }
 
         Connections {
@@ -56,6 +61,12 @@ Scope {
                 } else {
                     if (!overviewScope.dontAutoCancelSearch) {
                         searchWidget.cancelSearch();
+                    } else {
+                        // Clipboard/emoji shortcut open: the prefix is pre-filled and shown
+                        // instantly at full width (animateWidth is still false from the last
+                        // close). Re-enable the width animation right after, so editing the
+                        // query — e.g. clearing the ':'/';' — animates instead of snapping.
+                        Qt.callLater(() => searchWidget.enableExpandAnimation());
                     }
                     GlobalFocusGrab.addDismissable(panelWindow);
                 }
@@ -68,8 +79,10 @@ Scope {
                 GlobalStates.overviewOpen = false;
             }
         }
-        implicitWidth: columnLayout.implicitWidth
-        implicitHeight: columnLayout.implicitHeight
+        // Width comes from left+right anchors (full output). Height is a fixed envelope
+        // big enough for the tallest state (search bar + max results list, ~600 + chrome);
+        // the surface never resizes, so no per-frame configure round-trip.
+        implicitHeight: 720
 
         function setSearchingText(text) {
             searchWidget.setSearchingText(text);
@@ -96,20 +109,6 @@ Scope {
                 anchors.horizontalCenter: parent.horizontalCenter
                 Synchronizer on searchingText {
                     property alias source: panelWindow.searchingText
-                }
-            }
-
-            Loader {
-                id: overviewLoader
-                anchors.horizontalCenter: parent.horizontalCenter
-                // Only build the workspace grid (live window thumbnails are heavy) when
-                // it'll actually be shown — NOT for clipboard/emoji/launcher search,
-                // which would otherwise spin up ScreencopyView thumbnails for nothing.
-                active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
-                    && panelWindow.searchingText == "" && !overviewScope.launcherMode
-                sourceComponent: OverviewWidget {
-                    screen: panelWindow.screen
-                    visible: (panelWindow.searchingText == "" && !overviewScope.launcherMode)
                 }
             }
         }
@@ -167,25 +166,8 @@ Scope {
         }
     }
     GlobalShortcut {
-        name: "overviewWorkspacesClose"
-        description: "Closes overview on press"
-
-        onPressed: {
-            GlobalStates.overviewOpen = false;
-        }
-    }
-    GlobalShortcut {
-        name: "overviewWorkspacesToggle"
-        description: "Toggles overview on press"
-
-        onPressed: {
-            overviewScope.launcherMode = false;  // workspace overview shows the grid
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-    }
-    GlobalShortcut {
         name: "searchToggleRelease"
-        description: "Toggles search on release"
+        description: "Toggles the launcher pill on release"
 
         onPressed: {
             GlobalStates.superReleaseMightTrigger = true;
@@ -196,7 +178,6 @@ Scope {
                 GlobalStates.superReleaseMightTrigger = true;
                 return;
             }
-            overviewScope.launcherMode = true;  // tap-Super = launcher (search only, no workspaces)
             GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
         }
     }

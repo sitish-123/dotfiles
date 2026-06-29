@@ -38,6 +38,10 @@ Item { // Wrapper
         searchBar.animateWidth = false;
     }
 
+    function enableExpandAnimation() {
+        searchBar.animateWidth = true;
+    }
+
     function cancelSearch() {
         searchBar.searchInput.selectAll();
         LauncherSearch.query = "";
