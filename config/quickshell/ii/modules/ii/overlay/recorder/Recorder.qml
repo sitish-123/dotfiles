@@ -99,6 +99,41 @@ StyledOverlayWidget {
                 }
             }
 
+            // Quality preset (gpu-screen-recorder -q). Ultra = highest bitrate.
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 8
+                Repeater {
+                    model: [
+                        { v: "medium",    label: "Med" },
+                        { v: "high",      label: "High" },
+                        { v: "very_high", label: "V.High" },
+                        { v: "ultra",     label: "Ultra" }
+                    ]
+                    delegate: TextChip {
+                        required property var modelData
+                        label: modelData.label
+                        sel: Config.options.screenRecord.quality === modelData.v
+                        onClicked: Config.options.screenRecord.quality = modelData.v
+                    }
+                }
+            }
+
+            // Framerate
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 8
+                Repeater {
+                    model: ["30", "60", "120", "144"]
+                    delegate: TextChip {
+                        required property var modelData
+                        label: modelData
+                        sel: Config.options.screenRecord.fps === modelData
+                        onClicked: Config.options.screenRecord.fps = modelData
+                    }
+                }
+            }
+
             RippleButton {
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                 Layout.fillWidth: false
@@ -124,6 +159,25 @@ StyledOverlayWidget {
                     }
                 }
             }
+        }
+    }
+
+    component TextChip: RippleButton {
+        id: chip
+        property bool sel: false
+        property string label: ""
+        implicitWidth: chipText.implicitWidth + 22
+        implicitHeight: 30
+        buttonRadius: height / 2
+        colBackground: sel ? Appearance.colors.colPrimary : Appearance.colors.colLayer3
+        colBackgroundHover: sel ? Appearance.colors.colPrimary : Appearance.colors.colLayer3Hover
+        colRipple: Appearance.colors.colLayer3Active
+        contentItem: StyledText {
+            id: chipText
+            anchors.centerIn: parent
+            text: chip.label
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: chip.sel ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer3
         }
     }
 
