@@ -39,8 +39,10 @@ aur:bibata-cursor-theme-bin
 aur:matugen-bin
 # Material You color generation hook (called on every wallpaper/color change)
 aur:kde-material-you-colors
-# GTK theme matched by switchwall.sh (gsettings gtk-theme adw-gtk3)
-adw-gtk3
+# GTK theme. The Arch package was renamed adw-gtk3 -> adw-gtk-theme (extra), with no
+# provides alias — so the old name errors with "target not found". The theme NAME it
+# ships (used by switchwall.sh: gsettings gtk-theme adw-gtk3 / adw-gtk3-dark) is unchanged.
+adw-gtk-theme
 
 # --- browser (SUPER+B / SUPER+H keybind) ---
 chromium
