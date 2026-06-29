@@ -34,6 +34,10 @@ Singleton {
 
     property string networkName: ""
     property int networkStrength
+    // Live connection details for the connected Wi-Fi (shown inline, no external app).
+    property string ipAddress: ""
+    property string gateway: ""
+    property string dns: ""
     property string materialSymbol: root.ethernet
         ? "lan"
         : (root.wifiEnabled && root.wifiStatus === "connected")
@@ -177,6 +181,32 @@ Singleton {
         wifiStatusProcess.running = true
         updateNetworkName.running = true;
         updateNetworkStrength.running = true;
+        updateNetworkDetails.startCheck();
+    }
+
+    Process {
+        id: updateNetworkDetails
+        property string buffer
+        // IP / gateway / DNS of the connected wifi device (empty if none connected).
+        command: ["sh", "-c", "dev=$(nmcli -t -f DEVICE,TYPE,STATE d | awk -F: '$2==\"wifi\"&&$3==\"connected\"{print $1; exit}'); [ -n \"$dev\" ] && nmcli -t -f IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show \"$dev\""]
+        function startCheck() { buffer = ""; running = true; }
+        stdout: SplitParser {
+            onRead: data => { updateNetworkDetails.buffer += data + "\n"; }
+        }
+        onExited: (exitCode, exitStatus) => {
+            let ip = "", gw = "", dns = [];
+            updateNetworkDetails.buffer.trim().split("\n").forEach(line => {
+                const idx = line.indexOf(":");
+                if (idx < 0) return;
+                const key = line.slice(0, idx), val = line.slice(idx + 1).trim();
+                if (key.startsWith("IP4.ADDRESS") && !ip) ip = val;
+                else if (key === "IP4.GATEWAY") gw = val;
+                else if (key.startsWith("IP4.DNS")) dns.push(val);
+            });
+            root.ipAddress = ip;
+            root.gateway = gw;
+            root.dns = dns.join(", ");
+        }
     }
 
     Process {
