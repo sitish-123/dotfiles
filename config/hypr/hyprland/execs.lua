@@ -8,7 +8,8 @@ hl.on("hyprland.start", function ()
 
     -- Core components (authentication, lock screen, notification daemon)
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")
-    hl.exec_cmd("hypridle")
+    -- apply-idle.sh syncs hypridle's timeouts from the config (Settings > Power), then starts hypridle
+    hl.exec_cmd("$HOME/.config/hypr/hyprland/scripts/apply-idle.sh")
     hl.exec_cmd("dbus-update-activation-environment --all")
     hl.exec_cmd("sleep 1 && dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP") -- Some fix idk
 

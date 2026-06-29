@@ -530,6 +530,12 @@
         ],
         "showItemId": false
     },
+    "idle": {
+        "autoSuspend": true,
+        "lockMinutes": 5,
+        "screenOffMinutes": 10,
+        "suspendMinutes": 15
+    },
     "updates": {
         "adviseUpdateThreshold": 75,
         "checkInterval": 120,

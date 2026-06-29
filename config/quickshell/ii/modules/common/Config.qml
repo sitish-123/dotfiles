@@ -600,7 +600,17 @@ Singleton {
                 property int adviseUpdateThreshold: 75 // packages
                 property int stronglyAdviseUpdateThreshold: 200 // packages
             }
-            
+
+            // Idle/lock timeouts (minutes). Source of truth for hypridle — applied by
+            // hypr/hyprland/scripts/apply-idle.sh, which rewrites hypridle.conf and
+            // restarts hypridle. Edited from Settings > Power.
+            property JsonObject idle: JsonObject {
+                property int lockMinutes: 5
+                property int screenOffMinutes: 10
+                property int suspendMinutes: 15
+                property bool autoSuspend: true
+            }
+
             property JsonObject wallpaperSelector: JsonObject {
                 property bool useSystemFileDialog: false
             }
