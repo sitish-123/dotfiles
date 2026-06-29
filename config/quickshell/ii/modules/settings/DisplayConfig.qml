@@ -69,8 +69,13 @@ ContentPage {
         }
     }
 
-    // Adaptive sync (global)
+    // Adaptive sync (global). VRR capability isn't reliably exposed (kernel
+    // vrr_capable is often absent), so we gate on refresh rate: only offer the toggle
+    // when a connected monitor runs above 60Hz, where VRR is actually meaningful.
+    // (A plain 60Hz panel gets nothing from it and it can cause flicker.)
+    readonly property bool anyHighRefresh: page.monitors.some(m => (m.refreshRate ?? 0) > 61)
     ContentSection {
+        visible: page.anyHighRefresh
         icon: "monitor_heart"
         title: Translation.tr("Adaptive sync (VRR)")
         ConfigSwitch {

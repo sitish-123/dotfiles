@@ -55,8 +55,13 @@ Variants {
         property int wallpaperHeight: modelData.height // Some reasonable init value, to be updated
         property real scaledWallpaperWidth: wallpaperWidth * effectiveWallpaperScale
         property real scaledWallpaperHeight: wallpaperHeight * effectiveWallpaperScale
-        property real parallaxTotalPixelsX: Math.max(0, scaledWallpaperWidth - screen.width)
-        property real parallaxTotalPixelsY: Math.max(0, scaledWallpaperHeight - screen.height)
+        // Use the surface's OWN size (bgRoot.width/height), not screen.width/height. On a
+        // scaled output (e.g. 1.6x/2x) ShellScreen reports logical px while this layer
+        // surface renders in physical px; mixing them made the cover-scale ~1/scale too
+        // small, leaving the wallpaper shrunk with black borders. bgRoot.* is the exact
+        // space the image is placed in, so the math is self-consistent at any scale.
+        property real parallaxTotalPixelsX: Math.max(0, scaledWallpaperWidth - bgRoot.width)
+        property real parallaxTotalPixelsY: Math.max(0, scaledWallpaperHeight - bgRoot.height)
         readonly property bool verticalParallax: (Config.options.background.parallax.autoVertical && wallpaperHeight > wallpaperWidth) || Config.options.background.parallax.vertical
         // Colors
         property bool shouldBlur: (GlobalStates.screenLocked && Config.options.lock.blur.enable)
@@ -111,7 +116,7 @@ Variants {
                 onStreamFinished: {
                     const output = wallpaperSizeOutputCollector.text;
                     const [width, height] = output.split(" ").map(Number);
-                    const [screenWidth, screenHeight] = [bgRoot.screen.width, bgRoot.screen.height];
+                    const [screenWidth, screenHeight] = [bgRoot.width, bgRoot.height];
                     bgRoot.wallpaperWidth = width;
                     bgRoot.wallpaperHeight = height;
 
@@ -166,16 +171,16 @@ Variants {
                 }
 
                 x: {
-                    if (bgRoot.screen.width > width) {
+                    if (bgRoot.width > width) {
                         // Center the picture
-                        return (bgRoot.screen.width - width) / 2;
+                        return (bgRoot.width - width) / 2;
                     }
                     return - bgRoot.parallaxTotalPixelsX * usedFractionX;
                 }
                 y: {
-                    if (bgRoot.screen.height > height) {
+                    if (bgRoot.height > height) {
                         // Center the picture
-                        return (bgRoot.screen.height - height) / 2;
+                        return (bgRoot.height - height) / 2;
                     }
                     return - bgRoot.parallaxTotalPixelsY * usedFractionY;
                 }
