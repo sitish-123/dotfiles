@@ -11,3 +11,5 @@ config/illogical-impulse/installed_listfile
 config/illogical-impulse/backups/
 config/**/*.bak
 config/**/*.bak-*
+config/quickshell/ii/_*.qml
+config/quickshell/ii/modules/settings/_t.qml
