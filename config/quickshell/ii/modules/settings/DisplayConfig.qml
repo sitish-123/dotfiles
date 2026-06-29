@@ -117,7 +117,7 @@ ContentPage {
                     { displayName: "125%", value: 1.25 },
                     { displayName: "150%", value: 1.5 },
                     { displayName: "160%", value: 1.6 },
-                    { displayName: "175%", value: 1.75 },
+                    { displayName: "180%", value: 1.8 },
                     { displayName: "200%", value: 2.0 }
                 ]
             }
