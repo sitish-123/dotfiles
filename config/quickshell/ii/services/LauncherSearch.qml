@@ -247,18 +247,30 @@ Singleton {
             });
             // Empty query -> recents first, then the rest of the emojis so the
             // grid is full (capped so we don't build thousands of objects).
+            // Only build result objects for what the grid will actually show (capped at
+            // EMOJI_LIMIT). The old code ran makeEmoji() over the WHOLE ~3700-entry list
+            // and THEN sliced — creating thousands of QObjects and discarding ~95% every
+            // open. That churn (worst on the cold first open) was the emoji slowness/jitter.
+            const EMOJI_LIMIT = 150;
             if (searchString.length === 0) {
                 const recents = EmojiHistory.list ?? [];
                 const seen = {};
                 recents.forEach(e => seen[e] = true);
-                const recentResults = recents.map(e => makeEmoji(e, "")).filter(Boolean);
-                const restResults = (Emojis.list ?? []).map(entry => {
-                    const emoji = entry.match(/^\s*(\S+)/)?.[1] || "";
-                    return seen[emoji] ? null : makeEmoji(emoji, entry.replace(/^\s*\S+\s+/, ""));
-                }).filter(Boolean);
-                return recentResults.concat(restResults).slice(0, 150);
+                const out = [];
+                for (let i = 0; i < recents.length && out.length < EMOJI_LIMIT; i++) {
+                    const obj = makeEmoji(recents[i], "");
+                    if (obj) out.push(obj);
+                }
+                const all = Emojis.list ?? [];
+                for (let i = 0; i < all.length && out.length < EMOJI_LIMIT; i++) {
+                    const emoji = all[i].match(/^\s*(\S+)/)?.[1] || "";
+                    if (seen[emoji]) continue;
+                    const obj = makeEmoji(emoji, all[i].replace(/^\s*\S+\s+/, ""));
+                    if (obj) out.push(obj);
+                }
+                return out;
             }
-            return Emojis.fuzzyQuery(searchString).map(entry => {
+            return Emojis.fuzzyQuery(searchString).slice(0, EMOJI_LIMIT).map(entry => {
                 const emoji = entry.match(/^\s*(\S+)/)?.[1] || "";
                 return makeEmoji(emoji, entry.replace(/^\s*\S+\s+/, ""));
             }).filter(Boolean);
