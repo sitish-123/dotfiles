@@ -4,34 +4,99 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import Quickshell.Io
 import Quickshell.Bluetooth
 import Quickshell
-import Quickshell.Wayland
-import Quickshell.Hyprland
 
 WindowDialog {
     id: root
     backgroundHeight: 600
+    backgroundWidth: 400
 
-    WindowDialogTitle {
-        text: Translation.tr("Bluetooth devices")
+    readonly property var adapter: Bluetooth.defaultAdapter
+    readonly property bool btEnabled: adapter?.enabled ?? false
+    readonly property bool discovering: adapter?.discovering ?? false
+
+    // Start a scan on open (if enabled); stop it when the dialog closes.
+    Component.onCompleted: if (root.adapter && root.btEnabled) root.adapter.discovering = true
+    Component.onDestruction: if (root.adapter) root.adapter.discovering = false
+
+    RowLayout { // Title + power toggle
+        Layout.fillWidth: true
+        spacing: 8
+        WindowDialogTitle {
+            Layout.fillWidth: true
+            text: Translation.tr("Bluetooth")
+        }
+        StyledSwitch {
+            checked: root.btEnabled
+            onToggled: if (root.adapter) root.adapter.enabled = checked
+        }
     }
+
+    RowLayout { // Status + scan
+        Layout.fillWidth: true
+        Layout.topMargin: -4
+        spacing: 8
+        StyledText {
+            Layout.fillWidth: true
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            elide: Text.ElideRight
+            text: !root.btEnabled ? Translation.tr("Bluetooth is off")
+                : BluetoothStatus.activeDeviceCount > 0
+                    ? Translation.tr("%1 connected").arg(BluetoothStatus.firstActiveDevice?.name ?? Translation.tr("device"))
+                : root.discovering ? Translation.tr("Scanning…")
+                : Translation.tr("Not connected")
+        }
+        RippleButton {
+            implicitWidth: 34
+            implicitHeight: 34
+            buttonRadius: Appearance.rounding.full
+            enabled: root.btEnabled
+            releaseAction: () => { if (root.adapter) root.adapter.discovering = !root.adapter.discovering }
+            contentItem: MaterialSymbol {
+                id: scanIcon
+                anchors.centerIn: parent
+                text: "bluetooth_searching"
+                iconSize: Appearance.font.pixelSize.larger
+                color: root.discovering ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant
+                RotationAnimator on rotation {
+                    running: root.discovering
+                    loops: Animation.Infinite
+                    from: 0; to: 360; duration: 1400
+                    onRunningChanged: if (!running) scanIcon.rotation = 0
+                }
+            }
+        }
+    }
+
     WindowDialogSeparator {
-        visible: !(Bluetooth.defaultAdapter?.discovering ?? false)
+        visible: !root.discovering
     }
     StyledIndeterminateProgressBar {
-        visible: Bluetooth.defaultAdapter?.discovering ?? false
+        visible: root.discovering
         Layout.fillWidth: true
         Layout.topMargin: -8
         Layout.bottomMargin: -8
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
     }
+
+    StyledText { // empty / off states
+        visible: BluetoothStatus.friendlyDeviceList.length === 0
+        Layout.fillWidth: true
+        Layout.topMargin: 20
+        Layout.bottomMargin: 20
+        horizontalAlignment: Text.AlignHCenter
+        color: Appearance.colors.colSubtext
+        text: !root.btEnabled ? Translation.tr("Turn on Bluetooth to see devices")
+            : root.discovering ? Translation.tr("Scanning for devices…")
+            : Translation.tr("No devices found")
+    }
+
     StyledListView {
+        visible: BluetoothStatus.friendlyDeviceList.length > 0
         Layout.fillHeight: true
         Layout.fillWidth: true
         Layout.topMargin: -15
@@ -55,20 +120,10 @@ WindowDialog {
             }
         }
     }
+
     WindowDialogSeparator {}
     WindowDialogButtonRow {
-        DialogButton {
-            buttonText: Translation.tr("Details")
-            onClicked: {
-                Quickshell.execDetached(["bash", "-c", `${Config.options.apps.bluetooth}`]);
-                GlobalStates.sidebarRightOpen = false;
-            }
-        }
-
-        Item {
-            Layout.fillWidth: true
-        }
-
+        Item { Layout.fillWidth: true }
         DialogButton {
             buttonText: Translation.tr("Done")
             onClicked: root.dismiss()
