@@ -91,6 +91,12 @@ hl.bind("SUPER + ALT + R", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "
 hl.bind("CTRL + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen"), { locked = true })
 hl.bind("SUPER + SHIFT + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen --sound"),
     { locked = true, description = "Utilities: Record screen (with sound)" })
+hl.bind("SUPER + ALT + P", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --pause"),
+    { locked = true, description = "Utilities: Pause/resume recording" })
+hl.bind("SUPER + ALT + B", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --replay"),
+    { locked = true, description = "Utilities: Toggle replay buffer" })
+hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --save-replay"),
+    { locked = true, description = "Utilities: Save replay buffer" })
 --# Fullscreen screenshot
 local grimhyprctl = "grim -o \"$(hyprctl activeworkspace -j | jq -r '.monitor')\""
 hl.bind("Print", hl.dsp.exec_cmd(grimhyprctl .. " - | wl-copy"),

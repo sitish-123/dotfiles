@@ -27,6 +27,37 @@ aur:illogical-impulse-microtex-git
 
 # --- theming ---
 aur:matugen-bin
+# Material You color generation hook (called on every wallpaper/color change)
+aur:kde-material-you-colors
+# GTK theme matched by switchwall.sh (gsettings gtk-theme adw-gtk3)
+adw-gtk3
+
+# --- browser (SUPER+B / SUPER+H keybind) ---
+chromium
+
+# --- biometric / face unlock + lockscreen auth ---
+# Face unlock (PAM). Re-enroll per machine: `sudo howdy add`; set [video] device_path
+# in /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + ARCH-INSTALL.md.
+aur:howdy-git
+# Fingerprint unlock
+fprintd
+
+# --- backup ---
+# System snapshots. Pick the backup device on the new machine (UUID is machine-specific).
+timeshift
+
+# --- AI sidebar (ollama runs local models) ---
+ollama
+
+# --- wallpaper extras ---
+# Video wallpapers + wallpaper upscaling (both optional, called behind guards)
+aur:mpvpaper
+aur:upscayl-bin
+
+# --- screen recording (GPU/VAAPI accelerated; pause/resume + replay buffer) ---
+aur:gpu-screen-recorder
+# slurp = region selection for region recordings (also used by screenshot keybinds)
+slurp
 
 # --- launcher / clipboard / input (list explicitly; --needed dedupes) ---
 cliphist
@@ -53,3 +84,5 @@ bc
 rsync
 # Wi-Fi "Share" QR generation (sidebar + settings Network page)
 qrencode
+# `checkupdates` for the updates indicator (services/Updates.qml)
+pacman-contrib

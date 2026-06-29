@@ -21,6 +21,7 @@ ShellRoot {
 
     // Stuff for every panel family
     ReloadPopup {}
+    RecordingIndicator {} // top-centered pill while recording / replay buffer is active
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
@@ -74,4 +75,3 @@ ShellRoot {
         onPressed: root.cyclePanelFamily()
     }
 }
-

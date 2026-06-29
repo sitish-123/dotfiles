@@ -184,39 +184,53 @@ PanelWindow {
     property real regionX: Math.min(dragStartX, draggingX)
     property real regionY: Math.min(dragStartY, draggingY)
 
-    // Screenshot stuff
+    // Screenshot pre-capture for snip actions (Copy/Edit/Search/OCR). The crop
+    // pipeline (magick) reads this PNG. It runs in the BACKGROUND and must NOT gate
+    // the overlay's visibility — the visible freeze is the instant GPU ScreencopyView,
+    // so the selector now appears immediately instead of waiting for grim to write a
+    // full-screen file. Recording never uses this buffer, so skip grim entirely there.
     TempScreenshotProcess {
         id: screenshotProc
-        running: true
+        running: !root.isRecording
         screen: root.screen
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
         onExited: (exitCode, exitStatus) => {
+            root.screenshotReady = true;
             if (root.enableContentRegions) imageDetectionProcess.running = true;
-            root.preparationDone = !checkRecordingProc.running;
+            // A super-fast selection may finish before grim does; run the deferred crop now.
+            if (root.pendingCommand) {
+                Quickshell.execDetached(root.pendingCommand);
+                root.pendingCommand = null;
+            }
         }
     }
+    property bool screenshotReady: false
+    property var pendingCommand: null
+    // Snip actions need the grim buffer; recording doesn't. Defer only when the
+    // buffer isn't ready yet (human selection almost always outlasts grim anyway).
+    function execWhenReady(command) {
+        if (root.isRecording || root.screenshotReady) Quickshell.execDetached(command);
+        else root.pendingCommand = command;
+    }
+
     property bool isRecording: root.action === RegionSelection.SnipAction.Record || root.action === RegionSelection.SnipAction.RecordWithSound
-    property bool recordingShouldStop: false
+    // If a recording is already running, this trigger STOPS it instead of selecting.
     Process {
         id: checkRecordingProc
-        running: isRecording
+        running: root.isRecording
         command: ["pidof", "wf-recorder"]
         onExited: (exitCode, exitStatus) => {
-            root.preparationDone = !screenshotProc.running
-            root.recordingShouldStop = (exitCode === 0);
+            if (exitCode === 0) { // already recording → stop and close
+                Quickshell.execDetached([Directories.recordScriptPath]);
+                root.dismiss();
+            } else {
+                root.visible = true; // show the selector to pick the recording region
+            }
         }
     }
-    property bool preparationDone: false
-    onPreparationDoneChanged: {
-        if (!preparationDone) return;
-        if (root.isRecording && root.recordingShouldStop) {
-            Quickshell.execDetached([Directories.recordScriptPath]);
-            root.dismiss();
-            return;
-        }
-        root.visible = true;
-    }
+    // Snip actions: show the selector instantly; grim fills the buffer in the background.
+    Component.onCompleted: if (!root.isRecording) root.visible = true;
 
     Process {
         id: imageDetectionProcess
@@ -288,7 +302,7 @@ PanelWindow {
             screenshotAction, //
             screenshotDir
         )
-        Quickshell.execDetached(command);
+        root.execWhenReady(command);
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
             root.phase = RegionSelection.Phase.Post
             root.selectionMode = RegionSelection.SelectionMode.RectCorners

@@ -549,6 +549,16 @@ Singleton {
 
             property JsonObject screenRecord: JsonObject {
                 property string savePath: Directories.videos.replace("file://","") // strip "file://"
+                property string audio: "system"     // none | system | mic | both (mode for "record with sound")
+                property string fps: "60"           // framerate
+                property string quality: "very_high" // gpu-screen-recorder -q: medium|high|very_high|ultra
+                property string videoCodec: "auto"  // gpu-screen-recorder -k: auto|h264|hevc|av1|vp8|vp9
+                property string audioCodec: "opus"  // gpu-screen-recorder -ac: opus|aac|flac
+                property string extension: "mp4"    // container/extension
+                property int replayDuration: 30      // replay-buffer length in seconds
+                property string micSource: ""        // "" = default_input
+                property string systemSource: ""     // "" = default_output
+                property string extraArgs: ""        // extra gpu-screen-recorder args
             }
 
             property JsonObject screenSnip: JsonObject {

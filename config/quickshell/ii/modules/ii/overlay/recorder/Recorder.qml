@@ -58,7 +58,40 @@ StyledOverlayWidget {
                     name: "Record screen"
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--sound"]);
+                        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--audio", Config.options.screenRecord.audio]);
+                    }
+                }
+            }
+
+            // Audio source for recordings (region "record" stays silent; these apply to
+            // "record region with sound" and "record screen").
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 8
+                Repeater {
+                    model: [
+                        { mode: "none",   icon: "volume_off", label: "No audio" },
+                        { mode: "system", icon: "volume_up",  label: "System audio" },
+                        { mode: "mic",    icon: "mic",        label: "Microphone" },
+                        { mode: "both",   icon: "graphic_eq", label: "System + mic" }
+                    ]
+                    delegate: RippleButton {
+                        required property var modelData
+                        readonly property bool sel: Config.options.screenRecord.audio === modelData.mode
+                        implicitWidth: 42
+                        implicitHeight: 34
+                        buttonRadius: height / 2
+                        colBackground: sel ? Appearance.colors.colPrimary : Appearance.colors.colLayer3
+                        colBackgroundHover: sel ? Appearance.colors.colPrimary : Appearance.colors.colLayer3Hover
+                        colRipple: Appearance.colors.colLayer3Active
+                        onClicked: Config.options.screenRecord.audio = modelData.mode
+                        contentItem: MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            iconSize: 20
+                            color: sel ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer3
+                        }
+                        StyledToolTip { text: modelData.label }
                     }
                 }
             }

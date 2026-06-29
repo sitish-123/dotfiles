@@ -68,10 +68,12 @@ Singleton {
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]
                 break;
             case ScreenshotAction.Action.Record:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}'`]
+                // Silent region recording.
+                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}' --audio none`]
                 break;
             case ScreenshotAction.Action.RecordWithSound:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}' --sound`]
+                // Honor the configured audio mode (system | mic | both).
+                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}' --audio ${Config.options.screenRecord.audio}`]
                 break;
             default:
                 console.warn("[Region Selector] Unknown snip action, skipping snip.");
