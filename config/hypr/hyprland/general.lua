@@ -286,7 +286,10 @@ hl.config({
     misc = {
         disable_hyprland_logo = true,
         disable_splash_rendering = true,
-        vrr = 1,
+        -- vrr=0: constant 120Hz. vrr=1 (adaptive) caused 60Hz feel + flicker/artifacts
+        -- on this eDP panel (static apps dragged refresh down). Use vrr=2 for
+        -- fullscreen-only adaptive sync if you want it back for games.
+        vrr = 0,
         mouse_move_enables_dpms = true,
         key_press_enables_dpms = true,
         animate_manual_resizes = false,
