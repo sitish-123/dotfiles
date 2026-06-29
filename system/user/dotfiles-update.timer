@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily dotfiles auto-update
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

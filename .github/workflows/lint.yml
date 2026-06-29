@@ -1,0 +1,43 @@
+name: lint
+
+# Guards against the bug classes this repo has hit: broken shell scripts,
+# invalid JSON config, and QML that won't load (e.g. ScriptModel without
+# `import Quickshell`). A full qmllint needs the Quickshell modules, which aren't
+# available on a generic runner, so QML is checked by bootstrap/lint-qml.sh.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Shell syntax (bash -n)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::bash syntax error"; fail=1; }
+          done < <(find . -name '*.sh' -not -path './pkgs/*')
+          exit $fail
+
+      - name: ShellCheck
+        run: |
+          # Warnings only; don't fail the build on style nits.
+          shellcheck -S warning $(find . -name '*.sh' -not -path './pkgs/*') || true
+
+      - name: Validate JSON configs
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            jq empty "$f" || { echo "::error file=$f::invalid JSON"; fail=1; }
+          done < <(find config system -name '*.json' -not -path '*/installed_listfile*')
+          exit $fail
+
+      - name: QML sanity checks
+        run: bash bootstrap/lint-qml.sh

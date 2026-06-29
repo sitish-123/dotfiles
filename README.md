@@ -61,6 +61,17 @@ keyboard).
   ```
   → captures the changes, pushes the fork if needed, pushes the repo. **GitHub reflects it.**
 - **Pull updates on another machine:** `./update.sh`
+- **Auto-pull on a secondary machine (opt-in):** a systemd user timer runs `update.sh`
+  daily. Don't enable it on the authoring machine (you push from there); enable on
+  others:
+  ```bash
+  mkdir -p ~/.config/systemd/user
+  cp ~/Projects/dotfiles/system/user/dotfiles-update.{service,timer} ~/.config/systemd/user/
+  systemctl --user enable --now dotfiles-update.timer
+  ```
+- **CI:** `.github/workflows/lint.yml` runs on every push — `bash -n` + shellcheck on
+  scripts, JSON validation, and `bootstrap/lint-qml.sh` (catches e.g. QML using
+  `ScriptModel` without `import Quickshell`, the blank-page bug).
 
 ## What's customized
 

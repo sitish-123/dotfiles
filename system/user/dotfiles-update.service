@@ -1,0 +1,9 @@
+[Unit]
+Description=Update dotfiles (git pull --ff-only + submodule + relink + reload)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Assumes the repo lives at ~/Projects/dotfiles (the documented location).
+ExecStart=%h/Projects/dotfiles/update.sh
