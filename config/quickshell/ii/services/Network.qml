@@ -117,6 +117,55 @@ Singleton {
         getNetworks.running = true;
     }
 
+    // --- Share (QR + reveal password) ------------------------------------------
+    property bool activeAutoconnect: true
+    property string sharePassword: ""
+    property string shareQrPath: ""
+    property int shareNonce: 0
+    // Load the connected network's password and render a Wi-Fi QR (WIFI:...;) to a PNG.
+    function loadShareInfo(ssid: string): void {
+        root.sharePassword = "";
+        root.shareQrPath = "";
+        root.shareNonce += 1;
+        shareInfoProc.exec({
+            "environment": { "SSID": ssid, "OUT": `/tmp/quickshell/wifi-qr-${root.shareNonce}.png` },
+            "command": ["bash", "-c",
+                'mkdir -p /tmp/quickshell; ' +
+                'PSK=$(nmcli -s -g 802-11-wireless-security.psk connection show "$SSID" 2>/dev/null); ' +
+                'esc() { printf "%s" "$1" | sed \'s/\\\\/\\\\\\\\/g; s/;/\\\\;/g; s/,/\\\\,/g; s/:/\\\\:/g\'; }; ' +
+                'if [ -n "$PSK" ]; then T=WPA; else T=nopass; fi; ' +
+                'STR="WIFI:T:$T;S:$(esc "$SSID");P:$(esc "$PSK");;"; ' +
+                'qrencode -o "$OUT" -s 8 -m 2 "$STR" 2>/dev/null; ' +
+                'printf "%s" "$PSK"'
+            ]
+        });
+    }
+    Process {
+        id: shareInfoProc
+        property string buffer
+        function exec(desc) { buffer = ""; command = desc.command; environment = desc.environment; running = true; }
+        stdout: SplitParser { onRead: data => { shareInfoProc.buffer += data; } }
+        onExited: (code, status) => {
+            root.sharePassword = shareInfoProc.buffer;
+            root.shareQrPath = `/tmp/quickshell/wifi-qr-${root.shareNonce}.png`;
+        }
+    }
+
+    // --- Auto-connect toggle (for the connected network) -----------------------
+    function setActiveAutoconnect(enabled): void {
+        if (!active) return;
+        autoconnectProc.exec(["nmcli", "connection", "modify", active.ssid, "connection.autoconnect", enabled ? "yes" : "no"]);
+        root.activeAutoconnect = enabled;
+    }
+    Process { id: autoconnectProc }
+
+    // --- Hidden network --------------------------------------------------------
+    function connectHiddenNetwork(ssid: string, password: string): void {
+        connectProc.exec(password.length > 0
+            ? ["nmcli", "dev", "wifi", "connect", ssid, "password", password, "hidden", "yes"]
+            : ["nmcli", "dev", "wifi", "connect", ssid, "hidden", "yes"]);
+    }
+
     // Forget (delete) a saved network profile.
     function forgetWifiNetwork(ssid: string): void {
         forgetProc.exec(["nmcli", "connection", "delete", "id", ssid]);
@@ -228,7 +277,7 @@ Singleton {
         id: updateNetworkDetails
         property string buffer
         // IP / gateway / DNS of the connected wifi device (empty if none connected).
-        command: ["sh", "-c", "dev=$(nmcli -t -f DEVICE,TYPE,STATE d | awk -F: '$2==\"wifi\"&&$3==\"connected\"{print $1; exit}'); [ -n \"$dev\" ] && nmcli -t -f IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show \"$dev\""]
+        command: ["sh", "-c", "dev=$(nmcli -t -f DEVICE,TYPE,STATE d | awk -F: '$2==\"wifi\"&&$3==\"connected\"{print $1; exit}'); [ -z \"$dev\" ] && exit 0; nmcli -t -f IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show \"$dev\"; con=$(nmcli -t -f GENERAL.CONNECTION device show \"$dev\" | cut -d: -f2-); echo \"AUTOCONNECT:$(nmcli -g connection.autoconnect connection show \"$con\" 2>/dev/null)\""]
         function startCheck() { buffer = ""; running = true; }
         stdout: SplitParser {
             onRead: data => { updateNetworkDetails.buffer += data + "\n"; }
@@ -242,6 +291,7 @@ Singleton {
                 if (key.startsWith("IP4.ADDRESS") && !ip) ip = val;
                 else if (key === "IP4.GATEWAY") gw = val;
                 else if (key.startsWith("IP4.DNS")) dns.push(val);
+                else if (key === "AUTOCONNECT") root.activeAutoconnect = (val === "yes");
             });
             root.ipAddress = ip;
             root.gateway = gw;

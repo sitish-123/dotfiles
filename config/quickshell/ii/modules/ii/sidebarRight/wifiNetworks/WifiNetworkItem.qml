@@ -5,6 +5,7 @@ import qs.services
 import qs.services.network
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 
 DialogListItem {
     id: root
@@ -14,6 +15,7 @@ DialogListItem {
     readonly property bool expanded: (wifiNetwork?.expanded || wifiNetwork?.askingPassword) ?? false
     readonly property int strength: wifiNetwork?.strength ?? 0
     property string eapMethod: "peap"   // enterprise EAP method (peap/ttls)
+    property bool shareShown: false      // active network: QR + password reveal
 
     enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !isActive)
     active: (root.expanded || root.isActive) ?? false
@@ -140,6 +142,87 @@ DialogListItem {
                             Layout.maximumWidth: parent.width * 0.6
                             text: modelData.v
                             textFormat: Text.PlainText
+                        }
+                    }
+                }
+
+                ColumnLayout { // Active network: auto-connect + share (QR + password)
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    visible: root.isActive
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        StyledText {
+                            Layout.fillWidth: true
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                            text: Translation.tr("Connect automatically")
+                        }
+                        StyledSwitch {
+                            checked: Network.activeAutoconnect
+                            onToggled: Network.setActiveAutoconnect(checked)
+                        }
+                    }
+
+                    DialogButton {
+                        Layout.fillWidth: true
+                        buttonText: root.shareShown ? Translation.tr("Hide share") : Translation.tr("Share Wi-Fi")
+                        colBackground: Appearance.colors.colLayer4
+                        colBackgroundHover: Appearance.colors.colLayer4Hover
+                        colRipple: Appearance.colors.colLayer4Active
+                        onClicked: {
+                            root.shareShown = !root.shareShown;
+                            if (root.shareShown && root.wifiNetwork?.ssid)
+                                Network.loadShareInfo(root.wifiNetwork.ssid);
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: root.shareShown
+                        spacing: 6
+
+                        Rectangle { // white frame so the QR scans on dark themes
+                            Layout.alignment: Qt.AlignHCenter
+                            implicitWidth: 176
+                            implicitHeight: 176
+                            radius: Appearance.rounding.small
+                            color: "white"
+                            visible: Network.shareQrPath.length > 0
+                            Image {
+                                anchors.centerIn: parent
+                                width: 160; height: 160
+                                fillMode: Image.PreserveAspectFit
+                                smooth: false
+                                cache: false
+                                source: Network.shareQrPath.length > 0 ? ("file://" + Network.shareQrPath) : ""
+                                sourceSize.width: 160; sourceSize.height: 160
+                            }
+                        }
+                        RowLayout {
+                            Layout.alignment: Qt.AlignHCenter
+                            spacing: 6
+                            StyledText {
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnSurfaceVariant
+                                text: Network.sharePassword.length > 0 ? Network.sharePassword : Translation.tr("Open network")
+                                textFormat: Text.PlainText
+                            }
+                            RippleButton {
+                                visible: Network.sharePassword.length > 0
+                                implicitWidth: 28
+                                implicitHeight: 28
+                                buttonRadius: Appearance.rounding.full
+                                releaseAction: () => Quickshell.clipboardText = Network.sharePassword
+                                contentItem: MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    text: "content_copy"
+                                    iconSize: Appearance.font.pixelSize.normal
+                                    color: Appearance.colors.colOnSurfaceVariant
+                                }
+                            }
                         }
                     }
                 }

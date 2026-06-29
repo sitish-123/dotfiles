@@ -116,6 +116,52 @@ WindowDialog {
         }
     }
 
+    ColumnLayout { // Add a hidden network (SSID not broadcast)
+        id: hiddenSection
+        property bool open: false
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        visible: Network.wifiEnabled
+        spacing: 6
+
+        DialogButton {
+            Layout.fillWidth: true
+            buttonText: hiddenSection.open ? Translation.tr("Cancel") : Translation.tr("Add hidden network")
+            colBackground: Appearance.colors.colLayer4
+            colBackgroundHover: Appearance.colors.colLayer4Hover
+            colRipple: Appearance.colors.colLayer4Active
+            onClicked: hiddenSection.open = !hiddenSection.open
+        }
+        MaterialTextField {
+            id: hiddenSsid
+            visible: hiddenSection.open
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Network name (SSID)")
+        }
+        MaterialTextField {
+            id: hiddenPass
+            visible: hiddenSection.open
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Password (leave empty if open)")
+            echoMode: TextInput.Password
+            inputMethodHints: Qt.ImhSensitiveData
+            onAccepted: if (hiddenSsid.text.length > 0) Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text)
+        }
+        RowLayout {
+            visible: hiddenSection.open
+            Layout.fillWidth: true
+            Item { Layout.fillWidth: true }
+            DialogButton {
+                enabled: hiddenSsid.text.length > 0
+                buttonText: Translation.tr("Connect")
+                onClicked: {
+                    Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text);
+                    hiddenSection.open = false;
+                }
+            }
+        }
+    }
+
     WindowDialogSeparator {}
     WindowDialogButtonRow {
         Item { Layout.fillWidth: true }
