@@ -35,18 +35,24 @@ Singleton {
 
     IdleInhibitor {
         id: idleInhibitor
+        // Hyprland only honors the idle-inhibit protocol for a *mapped* surface. The old
+        // 0×0 window often never mapped, so "Keep awake" silently did nothing and the
+        // 5-min lock / 15-min suspend still fired — locking you out. Use a real 1×1,
+        // transparent, click-through surface on the background layer: invisible and inert,
+        // but reliably mapped, and never able to sit above hyprlock or steal input.
         window: PanelWindow {
-            // Inhibitor requires a "visible" surface
-            // Actually not lol
-            implicitWidth: 0
-            implicitHeight: 0
+            visible: true
+            implicitWidth: 1
+            implicitHeight: 1
+            exclusiveZone: 0
             color: "transparent"
-            // Just in case...
+            WlrLayershell.namespace: "quickshell:idleInhibitor"
+            WlrLayershell.layer: WlrLayer.Background
             anchors {
-                right: true
-                bottom: true
+                top: true
+                left: true
             }
-            // Make it not interactable
+            // Never interactable — can't grab pointer/keyboard (e.g. from the lockscreen)
             mask: Region {
                 item: null
             }
