@@ -66,10 +66,10 @@ ContentPage {
             RippleButtonWithIcon {
                 Layout.fillWidth: true
                 materialIcon: "download"
-                mainText: Translation.tr("Update now")
-                onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.update])
+                mainText: Translation.tr("Update everything")
+                onClicked: Quickshell.execDetached(["bash", "-c", Config.options.apps.updateAll])
                 StyledToolTip {
-                    text: Translation.tr("Runs: %1").arg(Config.options.apps.update)
+                    text: Translation.tr("System packages (official + AUR), then dotfiles + plugins")
                 }
             }
         }

@@ -158,6 +158,9 @@ Singleton {
                 property string taskManager: "plasma-systemmonitor --page-name Processes"
                 property string terminal: "kitty -1" // This is only for shell actions
                 property string update: "kitty -1 --hold=yes fish -i -c 'pkexec pacman -Syu'"
+                // Full update: packages + dotfiles + plugins. Resolves the dotfiles repo
+                // from the ~/.config/quickshell symlink, then runs update-all.sh.
+                property string updateAll: "kitty -1 --hold=yes bash -c 'cd $(dirname $(dirname $(readlink -f ~/.config/quickshell))) && ./update-all.sh'"
                 property string volumeMixer: `~/.config/hypr/hyprland/scripts/launch_first_available.sh "pavucontrol-qt" "pavucontrol"`
             }
 
