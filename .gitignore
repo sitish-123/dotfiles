@@ -9,6 +9,15 @@ config/**/generated/
 # non-portable absolute-path install manifest from the ii base
 config/illogical-impulse/installed_listfile
 config/illogical-impulse/backups/
+# user-specific state and settings — never ship these in updates
+config/illogical-impulse/config.json
+config/illogical-impulse/installed_true
+config/illogical-impulse/migrations.json
+config/illogical-impulse/version
+config/illogical-impulse/version.json
+config/illogical-impulse/actions/
+# display settings written by Settings > Display (machine-specific)
+config/hypr/custom/display.lua
 config/**/*.bak
 config/**/*.bak-*
 config/quickshell/ii/_*.qml

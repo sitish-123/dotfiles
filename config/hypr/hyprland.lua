@@ -25,6 +25,11 @@ end
 if is_file_exists(HOME .. "/.config/hypr/custom/general.lua") then
     require("custom.general")
 end
+-- Display overrides written by Settings > Display (monitor mode/scale/transform + VRR).
+-- Sourced after general.lua so it wins over any monitor= line there.
+if is_file_exists(HOME .. "/.config/hypr/custom/display.lua") then
+    require("custom.display")
+end
 if is_file_exists(HOME .. "/.config/hypr/custom/rules.lua") then
     require("custom.rules")
 end
