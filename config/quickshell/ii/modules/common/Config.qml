@@ -303,6 +303,9 @@ Singleton {
 
             property JsonObject calendar: JsonObject {
                 property string locale: "en-GB"
+                property bool useNepali: false
+                property string nepaliFormat: "dayMonth" // "dayMonth", "monthName", "short", "devanagari", "numerals"
+                property int firstDayOfWeek: 1 // 1=Monday, 0=Sunday
             }
 
             property JsonObject cheatsheet: JsonObject {
