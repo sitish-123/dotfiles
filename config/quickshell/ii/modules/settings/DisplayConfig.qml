@@ -206,4 +206,144 @@ ContentPage {
             }
         }
     }
+
+    property int screenTimeDays: 1
+
+    function fmtDuration(sec) {
+        sec = Math.round(sec)
+        if (sec <= 0) return "—"
+        const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60)
+        if (h > 0) return `${h}h ${m}m`
+        if (m > 0) return `${m}m`
+        return `${sec}s`
+    }
+
+    function computeScreenTime() {
+        const now = Math.floor(Date.now() / 1000)
+        const cutoff = page.screenTimeDays >= 9999 ? 0 : now - page.screenTimeDays * 86400
+        const samples = Battery.batteryHistory.filter(s => s[0] >= cutoff)
+        const appSecs = {}
+        for (let i = 1; i < samples.length; i++) {
+            const s = samples[i], prev = samples[i - 1]
+            const dur = s[0] - prev[0]
+            if (dur <= 0 || dur > 5400) continue
+            if (s.length < 4 || typeof s[3] !== "string" || s[3] === "") continue
+            const seen = new Set(s[3].split(",").map(p => p.split(":")[0]?.trim()).filter(Boolean))
+            for (const name of seen)
+                appSecs[name] = (appSecs[name] || 0) + dur
+        }
+        return Object.entries(appSecs)
+            .map(([name, secs]) => ({ name, secs }))
+            .sort((a, b) => b.secs - a.secs)
+            .slice(0, 12)
+    }
+
+    ContentSection {
+        id: screenTimeSection
+        icon: "hourglass_empty"
+        title: Translation.tr("Screen time")
+
+        property var _items: page.computeScreenTime()
+        property var _total: _items.reduce((a, x) => a + x.secs, 0)
+
+        RowLayout {
+            spacing: 4
+            Repeater {
+                model: [
+                    { label: "Today",   d: 1 },
+                    { label: "7 Days",  d: 7 },
+                    { label: "30 Days", d: 30 },
+                    { label: "All",     d: 9999 },
+                ]
+                delegate: RippleButton {
+                    required property var modelData
+                    buttonRadius: Appearance.rounding.small
+                    toggled: page.screenTimeDays === modelData.d
+                    implicitWidth: 70; implicitHeight: 30
+                    downAction: () => { page.screenTimeDays = modelData.d }
+                    contentItem: StyledText {
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnSurface
+                    }
+                }
+            }
+        }
+
+        StyledText {
+            visible: screenTimeSection._items.length === 0
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+            text: "No screen time data in this range."
+        }
+
+        Repeater {
+            model: screenTimeSection._items
+            delegate: ColumnLayout {
+                required property var modelData
+                required property int index
+                Layout.fillWidth: true
+                spacing: 4
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    StyledText {
+                        Layout.preferredWidth: 18
+                        horizontalAlignment: Text.AlignRight
+                        text: `${index + 1}`
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        opacity: 0.5
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: modelData.name
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.Medium
+                        color: Appearance.colors.colOnSurface
+                    }
+
+                    StyledText {
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        opacity: 0.7
+                        text: screenTimeSection._total > 0
+                            ? `${Math.round(modelData.secs / screenTimeSection._total * 100)}%`
+                            : ""
+                    }
+
+                    StyledText {
+                        Layout.preferredWidth: 60
+                        horizontalAlignment: Text.AlignRight
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.Medium
+                        color: Appearance.colors.colOnSurface
+                        text: page.fmtDuration(modelData.secs)
+                    }
+                }
+
+                StyledProgressBar {
+                    Layout.fillWidth: true
+                    value: screenTimeSection._items.length > 0
+                        ? modelData.secs / screenTimeSection._items[0].secs : 0
+                    highlightColor: index === 0 ? Appearance.colors.colPrimary
+                        : index <= 2 ? Appearance.colors.colSecondary
+                        : Appearance.colors.colTertiary
+                }
+            }
+        }
+
+        StyledText {
+            visible: screenTimeSection._items.length > 0
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            opacity: 0.6
+            text: `Total: ${page.fmtDuration(screenTimeSection._total)}  ·  ${screenTimeSection._items.length} apps`
+        }
+    }
 }
