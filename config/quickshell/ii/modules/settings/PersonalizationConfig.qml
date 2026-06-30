@@ -498,12 +498,18 @@ ContentPage {
         title: Translation.tr("Appearance mode")
         Layout.fillWidth: true
 
-        RowLayout {
+        Item {
             Layout.fillWidth: true
-            spacing: 8
-            uniformCellSizes: true
-            SmallLightDarkPreferenceButton { dark: false; Layout.fillHeight: true }
-            SmallLightDarkPreferenceButton { dark: true; Layout.fillHeight: true }
+            implicitHeight: 44
+            RowLayout {
+                anchors.centerIn: parent
+                width: Math.min(parent.width * 0.5, 300)
+                height: parent.height
+                spacing: 8
+                uniformCellSizes: true
+                SmallLightDarkPreferenceButton { dark: false; Layout.fillHeight: true }
+                SmallLightDarkPreferenceButton { dark: true; Layout.fillHeight: true }
+            }
         }
     }
 
