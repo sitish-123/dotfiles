@@ -99,9 +99,10 @@ Window {
                 }
             }
 
-            Rectangle {                  // web area, edge-to-edge (rounded by the compositor)
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            Rectangle {                  // web area: edge-to-edge sides/top; bottom inset by the
+                Layout.fillWidth: true   // corner radius so the panel's rounded bottom corners
+                Layout.fillHeight: true  // show (same #1b1b22, so the inset is invisible).
+                Layout.bottomMargin: 16
                 color: "#1b1b22"
                 clip: true
                 StackLayout {
