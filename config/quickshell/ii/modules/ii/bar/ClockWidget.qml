@@ -33,7 +33,7 @@ Item {
             visible: root.showDate
             font.pixelSize: Appearance.font.pixelSize.small
             color: Appearance.colors.colOnLayer1
-            text: DateTime.longDate
+            text: Config.options?.calendar?.useNepali ? DateTime.nepaliDate : DateTime.longDate
         }
     }
 
@@ -41,6 +41,25 @@ Item {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: !Config.options.bar.tooltips.clickToShow
+
+        onClicked: Config.options.calendar.useNepali = !Config.options.calendar.useNepali
+
+        // Scroll cycles: Gregorian → BS dayMonth → BS monthName → Gregorian
+        onWheel: (event) => {
+            const formats = ["dayMonth", "monthName", "short"]
+            if (!Config.options.calendar.useNepali) {
+                Config.options.calendar.useNepali = true
+                Config.options.calendar.nepaliFormat = "dayMonth"
+            } else {
+                const cur = formats.indexOf(Config.options.calendar.nepaliFormat)
+                const next = (cur + (event.angleDelta.y < 0 ? 1 : -1) + formats.length) % formats.length
+                if (next === 0 && event.angleDelta.y > 0) {
+                    Config.options.calendar.useNepali = false
+                } else {
+                    Config.options.calendar.nepaliFormat = formats[next]
+                }
+            }
+        }
 
         ClockWidgetPopup {
             hoverTarget: mouseArea
