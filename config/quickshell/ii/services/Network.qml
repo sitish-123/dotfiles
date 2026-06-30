@@ -23,13 +23,25 @@ Singleton {
     property WifiAccessPoint wifiConnectTarget
     readonly property list<WifiAccessPoint> wifiNetworks: []
     readonly property WifiAccessPoint active: wifiNetworks.find(n => n.active) ?? null
+    // Active first, then by signal *bucketed* to 20% steps, then SSID alphabetically.
+    // Bucketing + alphabetical tiebreak keeps the order STABLE: raw signal jitters by
+    // a few % every scan, and sorting on it reordered the list under the user's finger
+    // mid-password-entry. Buckets only reorder on a real signal change.
     readonly property list<var> friendlyWifiNetworks: [...wifiNetworks].sort((a, b) => {
-        if (a.active && !b.active)
-            return -1;
-        if (!a.active && b.active)
-            return 1;
-        return b.strength - a.strength;
+        if (a.active !== b.active)
+            return a.active ? -1 : 1;
+        const ba = Math.round((a.strength ?? 0) / 20);
+        const bb = Math.round((b.strength ?? 0) / 20);
+        if (ba !== bb)
+            return bb - ba;
+        return (a.ssid ?? "").localeCompare(b.ssid ?? "");
     })
+    // True while the user is mid-interaction (expanding a network, typing a password,
+    // or a connect is in flight). Consumers pause the periodic rescan on this so the
+    // list can't rebuild/reorder and destroy an open input form.
+    readonly property bool userInteracting: wifiConnecting
+        || (wifiConnectTarget !== null)
+        || wifiNetworks.some(n => (n?.expanded ?? false) || (n?.askingPassword ?? false))
     property string wifiStatus: "disconnected"
 
     property string networkName: ""
@@ -445,7 +457,13 @@ Singleton {
 
                 const rNetworks = root.wifiNetworks;
 
-                const destroyed = rNetworks.filter(rn => !wifiNetworks.find(n => n.frequency === rn.frequency && n.ssid === rn.ssid && n.bssid === rn.bssid));
+                // Don't destroy an AP the user is mid-interaction with: a single scan
+                // can transiently drop a still-present AP (esp. the one being connected
+                // to), and destroying it would tear down the open password form and the
+                // typed password. Keep it until the user is done — it'll re-match next scan.
+                const destroyed = rNetworks.filter(rn =>
+                    !rn.askingPassword && !rn.expanded && rn !== root.wifiConnectTarget
+                    && !wifiNetworks.find(n => n.frequency === rn.frequency && n.ssid === rn.ssid && n.bssid === rn.bssid));
                 for (const network of destroyed)
                     rNetworks.splice(rNetworks.indexOf(network), 1).forEach(n => n.destroy());
 

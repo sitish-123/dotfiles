@@ -16,6 +16,9 @@ WindowDialog {
     readonly property var adapter: Bluetooth.defaultAdapter
     readonly property bool btEnabled: adapter?.enabled ?? false
     readonly property bool discovering: adapter?.discovering ?? false
+    // Which device is expanded, keyed by address — lives here (not in the delegate) so it
+    // survives delegates being recycled/reordered as devices appear during discovery.
+    property string expandedAddress: ""
 
     // Start a scan on open (if enabled); stop it when the dialog closes.
     Component.onCompleted: if (root.adapter && root.btEnabled) root.adapter.discovering = true
@@ -71,16 +74,25 @@ WindowDialog {
         }
     }
 
-    WindowDialogSeparator {
-        visible: !root.discovering
-    }
-    StyledIndeterminateProgressBar {
-        visible: root.discovering
+    // Divider that turns into the scan progress line in place — fixed 4px slot so
+    // toggling discovery never shifts the layout (see WifiDialog for the rationale).
+    Item {
         Layout.fillWidth: true
         Layout.topMargin: -8
         Layout.bottomMargin: -8
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
+        implicitHeight: 4
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+            height: 1
+            color: Appearance.colors.colOutline
+            visible: !root.discovering
+        }
+        StyledIndeterminateProgressBar {
+            anchors.fill: parent
+            visible: root.discovering
+        }
     }
 
     StyledText { // empty / off states
@@ -114,6 +126,11 @@ WindowDialog {
         delegate: BluetoothDeviceItem {
             required property BluetoothDevice modelData
             device: modelData
+            expanded: root.expandedAddress.length > 0 && root.expandedAddress === (modelData?.address ?? "")
+            onToggleExpand: {
+                const a = modelData?.address ?? "";
+                root.expandedAddress = (root.expandedAddress === a) ? "" : a;
+            }
             anchors {
                 left: parent?.left
                 right: parent?.right

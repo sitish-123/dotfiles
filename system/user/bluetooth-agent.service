@@ -1,0 +1,14 @@
+[Unit]
+Description=BlueZ pairing agent (NoInputNoOutput) for quickshell ii
+Documentation=man:bluetoothctl(1)
+After=bluetooth.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/bluetooth-agent
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
