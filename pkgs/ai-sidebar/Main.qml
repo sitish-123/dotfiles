@@ -5,10 +5,10 @@ import QtQuick.Controls
 import org.kde.layershell 1.0 as LayerShell
 import QtWebEngine
 
-// Floating layer-shell sidebar (like the old Quickshell one): inset + rounded, translucent
-// so Hyprland's blur frosts it (see the layer rules in custom/rules.lua), slides in/out,
-// and dismisses when you click outside. Embeds the logged-in Gemini/ChatGPT/Claude web
-// apps with a pill switcher on top.
+// Floating layer-shell sidebar (like the old Quickshell one). The SURFACE is inset via
+// LayerShellQt margins in main.cpp so it floats; the panel is rounded + translucent so
+// Hyprland blur frosts it (corners stay sharp via ignore_alpha). A fullscreen catcher
+// layer below it dismisses on a real click outside (not on hover — follow_mouse is on).
 Window {
     id: win
     visible: Controller.shown
@@ -16,23 +16,11 @@ Window {
     color: "transparent"
 
     LayerShell.Window.anchors: LayerShell.Window.AnchorLeft | LayerShell.Window.AnchorTop | LayerShell.Window.AnchorBottom
-    LayerShell.Window.layer: LayerShell.Window.LayerTop
+    LayerShell.Window.layer: LayerShell.Window.LayerOverlay
     LayerShell.Window.exclusionZone: 0
     LayerShell.Window.keyboardInteractivity: LayerShell.Window.KeyboardInteractivityOnDemand
     LayerShell.Window.activateOnShow: true
     LayerShell.Window.scope: "ai-sidebar"
-
-    // Tap-outside-to-dismiss: arm only once the panel has actually grabbed focus (so it
-    // doesn't dismiss itself in the brief unfocused moment right after showing).
-    property bool armed: false
-    onActiveChanged: {
-        if (active) armed = true;
-        else if (armed) Controller.shown = false;
-    }
-    Connections {
-        target: Controller
-        function onShownChanged() { if (Controller.shown) win.armed = false; }
-    }
 
     readonly property var tabs: [
         { "name": "Gemini",  "url": "https://gemini.google.com/app" },
@@ -41,14 +29,32 @@ Window {
     ]
     property int current: 0
 
+    // Fullscreen transparent catcher (one layer below the sidebar) — a real click anywhere
+    // outside the panel dismisses it. follow_mouse=1 means we can't use focus loss (that
+    // fires on hover), so this is the reliable "tap outside to close".
+    Window {
+        id: catcher
+        visible: Controller.shown
+        color: "transparent"
+        LayerShell.Window.anchors: LayerShell.Window.AnchorLeft | LayerShell.Window.AnchorRight | LayerShell.Window.AnchorTop | LayerShell.Window.AnchorBottom
+        LayerShell.Window.layer: LayerShell.Window.LayerTop
+        LayerShell.Window.keyboardInteractivity: LayerShell.Window.KeyboardInteractivityNone
+        LayerShell.Window.scope: "ai-sidebar-catcher"
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+            onPressed: Controller.shown = false
+        }
+    }
+
     WebEngineProfile {
         id: aiProfile
         storageName: "ai-sidebar"        // persists cookies/login under ~/.local/share
         offTheRecord: false
     }
 
-    Rectangle {                          // rounded translucent panel; the SURFACE is already
-        id: panel                        // inset by C++ margins (main.cpp) so this floats
+    Rectangle {                          // rounded translucent panel (surface already inset)
+        id: panel
         anchors.fill: parent
         radius: 18
         color: Qt.rgba(0.07, 0.07, 0.09, 0.55)   // translucent -> Hyprland blur frosts it
@@ -95,7 +101,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 radius: 12
-                color: "transparent"
+                color: "#1b1b22"
                 clip: true
                 StackLayout {
                     anchors.fill: parent
@@ -109,9 +115,7 @@ Window {
                                 anchors.fill: parent
                                 profile: aiProfile
                                 url: parent.modelData.url
-                                backgroundColor: "transparent"
-                                // No white flash: keep a dark cover up until the page has
-                                // actually painted, fade it out, and bring it back on nav.
+                                backgroundColor: "#1b1b22"   // opaque: no blank/blur-through, no flash
                                 onLoadingChanged: (req) => {
                                     if (req.status === WebEngineView.LoadStartedStatus) cover.opacity = 1;
                                     else if (req.status === WebEngineView.LoadSucceededStatus
@@ -121,13 +125,10 @@ Window {
                             Rectangle {
                                 id: cover
                                 anchors.fill: parent
-                                color: Qt.rgba(0.07, 0.07, 0.09, 1.0)
+                                color: "#1b1b22"
                                 opacity: 1
                                 Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                                BusyIndicator {
-                                    anchors.centerIn: parent
-                                    running: cover.opacity > 0.5
-                                }
+                                BusyIndicator { anchors.centerIn: parent; running: cover.opacity > 0.5 }
                             }
                         }
                     }

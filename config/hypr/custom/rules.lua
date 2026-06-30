@@ -9,3 +9,6 @@
 -- opaque). Namespace is "ai-sidebar" (the LayerShellQt scope).
 hl.layer_rule({ match = { namespace = "ai-sidebar" }, animation = "slide left" })
 hl.layer_rule({ match = { namespace = "ai-sidebar" }, blur = true })
+-- ignore_alpha 0.3: blur the translucent panel (alpha 0.55) but NOT the fully transparent
+-- rounded corners (alpha 0) -> corners stay sharp/transparent so the panel looks rounded.
+hl.layer_rule({ match = { namespace = "ai-sidebar" }, ignore_alpha = 0.3 })
