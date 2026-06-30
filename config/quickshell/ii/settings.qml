@@ -209,7 +209,7 @@ ApplicationWindow {
                 id: navRailWrapper
                 Layout.fillHeight: true
                 Layout.margins: 5
-                implicitWidth: navRail.expanded ? 150 : fab.baseSize
+                implicitWidth: navRail.expanded ? 175 : fab.baseSize
                 Behavior on implicitWidth {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
@@ -257,7 +257,8 @@ ApplicationWindow {
 
                     StyledFlickable { // Scrollable grouped tabs — the page list can exceed the rail height
                         id: navFlickable
-                        Layout.topMargin: 20
+                        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+                        Layout.topMargin: 6
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
@@ -267,7 +268,7 @@ ApplicationWindow {
                         ColumnLayout { // Grouped tabs (System / Customization) with section labels
                             id: tabsColumn
                             width: navFlickable.width
-                            spacing: 2
+                            spacing: 0
                             Repeater {
                                 model: root.pages
                                 delegate: ColumnLayout {
@@ -275,13 +276,14 @@ ApplicationWindow {
                                     required property var modelData
                                     readonly property bool sectionStart: index === 0 || root.pages[index - 1].section !== modelData.section
                                     Layout.fillWidth: true
-                                    Layout.topMargin: (index > 0 && sectionStart) ? 10 : 0
-                                    spacing: 2
+                                    Layout.topMargin: (index > 0 && sectionStart) ? 6 : 0
+                                    spacing: 0
 
                                     StyledText {
                                         visible: navRail.expanded && parent.sectionStart
                                         Layout.leftMargin: 10
                                         Layout.bottomMargin: 2
+                                        Layout.topMargin: 2
                                         text: modelData.section ?? ""
                                         color: Appearance.colors.colSubtext
                                         font.pixelSize: Appearance.font.pixelSize.smaller
@@ -296,6 +298,8 @@ ApplicationWindow {
                                         buttonIconRotation: modelData.iconRotation || 0
                                         buttonText: modelData.name
                                         showToggledHighlight: true
+                                        baseSize: 44
+                                        baseHighlightHeight: 28
                                     }
                                 }
                             }

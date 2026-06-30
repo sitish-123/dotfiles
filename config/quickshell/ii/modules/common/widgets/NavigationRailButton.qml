@@ -116,6 +116,7 @@ TabButton {
 
         StyledText {
             id: itemText
+            visible: root.expanded
             anchors {
                 top: itemIconBackground.bottom
                 topMargin: 2
