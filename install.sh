@@ -323,6 +323,18 @@ if ask_yes "Symlink configs into $CONFIG_HOME (existing real configs are backed 
         done
     fi
 
+    # Seed custom/ lua files from custom.defaults/ — only if the file doesn't exist yet.
+    # custom/*.lua is gitignored; updates never overwrite them. Edit custom/ freely.
+    CUSTOM_SRC="$DOT_ROOT/config/hypr/custom.defaults"
+    CUSTOM_DST="$DOT_ROOT/config/hypr/custom"
+    if [ -d "$CUSTOM_SRC" ]; then
+        mkdir -p "$CUSTOM_DST"
+        for f in "$CUSTOM_SRC"/*.lua; do
+            dst="$CUSTOM_DST/$(basename "$f")"
+            [ -f "$dst" ] || { cp "$f" "$dst"; info "Seeded custom/$(basename "$f") from defaults"; }
+        done
+    fi
+
     # AI app launchers: Gemini + ChatGPT as chromium PWAs, Claude Code in a terminal.
     # Self-built (no third-party packages), idempotent. Needs a Chromium-based browser
     # for the PWAs (the optional 'browser' group's chromium); skips them otherwise.

@@ -16,8 +16,9 @@ config/illogical-impulse/migrations.json
 config/illogical-impulse/version
 config/illogical-impulse/version.json
 config/illogical-impulse/actions/
-# display settings written by Settings > Display (machine-specific)
-config/hypr/custom/display.lua
+# custom/ lua files are user-owned — seeded once from custom.defaults/ by install.sh,
+# never overwritten by git pull. Edit them freely; updates only touch custom.defaults/.
+config/hypr/custom/*.lua
 config/**/*.bak
 config/**/*.bak-*
 config/quickshell/ii/_*.qml

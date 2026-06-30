@@ -37,6 +37,18 @@ for d in "${MANAGED_CONFIGS[@]}"; do
     fi
 done
 
+# Seed any NEW custom.defaults/ lua files into custom/ (only if absent).
+# Existing custom/*.lua files are never touched — user edits are preserved.
+CUSTOM_SRC="$DOT_ROOT/config/hypr/custom.defaults"
+CUSTOM_DST="$DOT_ROOT/config/hypr/custom"
+if [ -d "$CUSTOM_SRC" ]; then
+    mkdir -p "$CUSTOM_DST"
+    for f in "$CUSTOM_SRC"/*.lua; do
+        dst="$CUSTOM_DST/$(basename "$f")"
+        [ -f "$dst" ] || { cp "$f" "$dst"; info "Seeded new custom/$(basename "$f") from defaults"; }
+    done
+fi
+
 # Record the Hyprland version we just built against, so the next run detects the next bump.
 [ -n "$CUR_HVER" ] && { mkdir -p "$(dirname "$STATE")"; printf '%s\n' "$CUR_HVER" > "$STATE"; }
 
