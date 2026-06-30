@@ -7,9 +7,10 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 require("hyprland.lib")
-require("hyprland.variables")
 if is_file_exists(HOME .. "/.config/hypr/custom/variables.lua") then
     require("custom.variables")
+else
+    require("hyprland.variables")
 end
 
 local qsScripts = "$HOME/.config/quickshell/$qsConfig/scripts"
