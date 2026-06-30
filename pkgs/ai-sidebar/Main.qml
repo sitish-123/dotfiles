@@ -12,7 +12,7 @@ import QtWebEngine
 Window {
     id: win
     visible: Controller.shown
-    width: 500
+    width: 460                           // match the right sidebar (Appearance.sizes.sidebarWidth)
     color: "transparent"
 
     LayerShell.Window.anchors: LayerShell.Window.AnchorLeft | LayerShell.Window.AnchorTop | LayerShell.Window.AnchorBottom

@@ -134,7 +134,7 @@
     },
     "bar": {
         "autoHide": {
-            "enable": true,
+            "enable": false,
             "hoverRegionWidth": 2,
             "pushWindows": false,
             "showWhenPressingSuper": {

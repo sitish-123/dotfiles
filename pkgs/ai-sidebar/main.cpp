@@ -11,7 +11,38 @@
 #include <QObject>
 #include <QWindow>
 #include <QMargins>
+#include <QScreen>
+#include <QProcess>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <LayerShellQt/Window>
+
+static QByteArray hyprctlJson(const QStringList &args) {
+    QProcess p;
+    p.start(QStringLiteral("hyprctl"), args);
+    return p.waitForFinished(1500) ? p.readAllStandardOutput() : QByteArray();
+}
+
+// Bottom margin to clear the bottom bar, computed LIVE from Hyprland (not a magic number).
+// The bar is bottom-anchored (its bottom edge == the screen bottom), so the margin we need
+// from the screen bottom is simply the bar's height + a small gap. Reading the bar's height
+// (h) sidesteps any logical/physical screen-size mismatch. Adapts if the bar height changes.
+static int bottomMarginForBar(int gap, int fallback) {
+    int barH = -1;
+    const QJsonObject root = QJsonDocument::fromJson(hyprctlJson({"layers", "-j"})).object();
+    for (const QJsonValue &mon : root) {
+        const QJsonObject levels = mon.toObject().value("levels").toObject();
+        for (const QJsonValue &lvl : levels) {
+            for (const QJsonValue &layerV : lvl.toArray()) {
+                const QJsonObject layer = layerV.toObject();
+                if (layer.value("namespace").toString().startsWith("quickshell:bar"))
+                    barH = layer.value("h").toInt();
+            }
+        }
+    }
+    return barH > 0 ? barH + gap : fallback;
+}
 
 class Controller : public QObject {
     Q_OBJECT
@@ -65,11 +96,13 @@ int main(int argc, char *argv[]) {
     if (engine.rootObjects().isEmpty())
         return -1;
 
-    // Inset the layer SURFACE itself so the panel floats (gaps on left/top + above the
-    // bottom bar), instead of stretching edge-to-edge. QMargins(left, top, right, bottom).
+    // Float the SURFACE: small gap top/left (matches the right sidebar), and a bottom margin
+    // computed live so it always sits just above the bar. QMargins(left, top, right, bottom).
     if (auto *qw = qobject_cast<QWindow *>(engine.rootObjects().constFirst())) {
-        if (auto *ls = LayerShellQt::Window::get(qw))
-            ls->setMargins(QMargins(12, 12, 0, 64));
+        if (auto *ls = LayerShellQt::Window::get(qw)) {
+            const int gap = 8;
+            ls->setMargins(QMargins(gap, gap, 0, bottomMarginForBar(gap, 82)));
+        }
     }
     return app.exec();
 }
