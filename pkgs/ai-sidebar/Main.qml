@@ -97,6 +97,38 @@ Window {
         id: aiProfile
         storageName: "ai-sidebar"        // persists cookies/login under ~/.local/share
         offTheRecord: false
+        // ChatGPT/OpenAI sits behind Cloudflare, which blocks the default User-Agent because it
+        // carries a "QtWebEngine/<ver>" token — the page just spins on loading. (Gemini doesn't
+        // care, which is why it worked.) Strip that token so we present as plain Chrome. Derived
+        // from the real default UA so the Chrome version always matches the actual engine, which
+        // keeps it consistent with the sec-ch-ua client hints Cloudflare cross-checks.
+        Component.onCompleted: httpUserAgent = httpUserAgent.replace(/ QtWebEngine\/[^ ]+/, "")
+    }
+
+    // OAuth / "Continue with Google" opens a popup via window.open(). A WebEngineView drops these
+    // unless we handle newViewRequested and give the request a real view to load into — otherwise
+    // the button just spins forever. We open it as a normal floating toplevel (NO LayerShell
+    // props, so it can take keyboard focus for the password) on the SAME profile, so when the
+    // popup finishes the signed-in session is shared back into the sidebar tab.
+    Component {
+        id: popupComponent
+        Window {
+            id: popupWin
+            width: 480
+            height: 660
+            visible: true
+            title: "Sign in"
+            color: "white"
+            property alias view: popupView
+            WebEngineView {
+                id: popupView
+                anchors.fill: parent
+                profile: aiProfile
+                onWindowCloseRequested: popupWin.destroy()
+                // some providers chain a second popup mid-flow
+                onNewWindowRequested: (req) => { let p = popupComponent.createObject(win); if (p) req.openIn(p.view); }
+            }
+        }
     }
 
     Rectangle {                          // panel; colour tracks the active tab so the rounded
@@ -204,6 +236,11 @@ Window {
                                                            : WebEngineView.LifecycleStateFrozen)
                                         : (win.current === tab.index ? WebEngineView.LifecycleStateActive
                                                                      : WebEngineView.LifecycleStateFrozen)
+                                    // Route OAuth/"Continue with Google" popups to a real window.
+                                    onNewWindowRequested: (request) => {
+                                        let p = popupComponent.createObject(win);
+                                        if (p) request.openIn(p.view);
+                                    }
                                     onLoadingChanged: (req) => {
                                         if (req.status === WebEngineView.LoadStartedStatus) cover.opacity = 1;
                                         else if (req.status === WebEngineView.LoadSucceededStatus
