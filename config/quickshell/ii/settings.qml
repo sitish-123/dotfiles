@@ -69,9 +69,9 @@ ApplicationWindow {
         // --- Customization ---
         {
             section: Translation.tr("Customization"),
-            name: Translation.tr("Quick"),
-            icon: "instant_mix",
-            component: "modules/settings/QuickConfig.qml"
+            name: Translation.tr("Personalization"),
+            icon: "palette",
+            component: "modules/settings/PersonalizationConfig.qml"
         },
         {
             section: Translation.tr("Customization"),
@@ -209,7 +209,7 @@ ApplicationWindow {
                 id: navRailWrapper
                 Layout.fillHeight: true
                 Layout.margins: 5
-                implicitWidth: navRail.expanded ? 175 : fab.baseSize
+                implicitWidth: navRail.expanded ? 195 : fab.baseSize
                 Behavior on implicitWidth {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }

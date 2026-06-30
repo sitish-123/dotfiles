@@ -220,6 +220,7 @@ Singleton {
                     }
                 }
                 property string wallpaperPath: ""
+                property string wallpaperPathLock: "" // Lock-screen wallpaper; empty = same as desktop
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {
@@ -393,6 +394,10 @@ Singleton {
                 }
                 property bool centerClock: true
                 property bool showLockedText: true
+                property JsonObject widgets: JsonObject {
+                    property bool clock: true   // Show the clock widget on the lock screen
+                    property bool weather: false // Show the weather widget on the lock screen
+                }
                 property JsonObject security: JsonObject {
                     property bool unlockKeyring: true
                     property bool requirePasswordToPower: false

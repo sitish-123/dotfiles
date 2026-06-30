@@ -12,6 +12,11 @@ AbstractBackgroundWidget {
 
     configEntryName: "weather"
 
+    readonly property bool shouldShow: GlobalStates.screenLocked
+        ? Config.options.lock.widgets.weather
+        : Config.options.background.widgets.weather.enable
+    opacity: shouldShow ? 1 : 0
+
     implicitHeight: backgroundShape.implicitHeight
     implicitWidth: backgroundShape.implicitWidth
 
