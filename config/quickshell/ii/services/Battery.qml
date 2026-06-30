@@ -33,23 +33,14 @@ Singleton {
     property real timeToEmpty: UPower.displayDevice.timeToEmpty
     property real timeToFull: UPower.displayDevice.timeToFull
 
-    property real health: (function() {
-        const devList = UPower.devices.values;
-        for (let i = 0; i < devList.length; ++i) {
-            const dev = devList[i];
-            if (dev.isLaptopBattery && dev.healthSupported) {
-                const health = dev.healthPercentage;
-                if (health === 0) {
-                    return 0.01;
-                } else if (health < 1) {
-                    return health * 100;
-                } else {
-                    return health;
-                }
-            }
-        }
-        return 0;
-    })()
+    property real health: {
+        const dev = UPower.displayDevice
+        if (dev && dev.isLaptopBattery && dev.healthSupported)
+            return dev.healthPercentage
+        // ponytail: UPower energy ratio fallback — same source, always reactive
+        if (energyFullDesign > 0) return energyFull / energyFullDesign * 100
+        return -1
+    }
 
 
     onIsLowAndNotChargingChanged: {
@@ -156,6 +147,108 @@ Singleton {
         }
     }
     Timer { interval: 30000; running: true; repeat: true; onTriggered: sysReadProc.running = true }
+
+    // --- Battery % history (persistent, 15-min samples, 2-yr window) ----------
+    // Format: [[timestamp_sec, percent_0_to_100], ...]  — tracker writes, readers reload.
+    property var batteryHistory: []
+
+    // Sample format: [timestamp, percent, watts, "proc:cpu%,...", rx_bytes, tx_bytes]
+    // watts/procs/rx/tx are "" / 0 for UPower-seeded entries
+    property string _pendingProcs: ""
+    property real _pendingRx: 0
+    property real _pendingTx: 0
+
+    // Capture top 5 procs + wattage + net bytes, then write sample
+    Process {
+        id: topProcSampler
+        command: ["bash", "-c",
+            "p=$(ps -eo comm,%cpu --sort=-%cpu --no-headers | " +
+            "awk '$2>0.3 && NR<=5 {printf \"%s:%.1f,\",$1,$2}' | sed 's/,$//'); " +
+            "n=$(awk 'NR>2 && $1!=\"lo:\"{rx+=$2;tx+=$10}END{print rx\" \"tx}' /proc/net/dev); " +
+            "echo \"$p|$n\""
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const pipe = text.indexOf("|")
+                root._pendingProcs = (pipe >= 0 ? text.slice(0, pipe) : text).trim()
+                const parts = (pipe >= 0 ? text.slice(pipe + 1) : "").trim().split(" ")
+                root._pendingRx = parseInt(parts[0]) || 0
+                root._pendingTx = parseInt(parts[1]) || 0
+            }
+        }
+        onExited: {
+            if (!root.isTracker) return
+            const now = root.nowSec()
+            const cutoff = now - 2 * 365 * 86400
+            const h = root.batteryHistory.filter(s => s[0] >= cutoff)
+            h.push([now, Math.round(root.percentage * 100),
+                    parseFloat(Math.abs(root.energyRate).toFixed(2)),
+                    root._pendingProcs,
+                    root._pendingRx,
+                    root._pendingTx])
+            root.batteryHistory = h
+            historyFile.setText(JSON.stringify({ samples: h }))
+        }
+    }
+    Timer {
+        interval: 900000  // 15 min
+        running: root.isTracker
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: topProcSampler.running = true
+    }
+    Timer {
+        // Non-tracker instances reload the history every 15 min to stay in sync.
+        interval: 900000; running: !root.isTracker; repeat: true; triggeredOnStart: false
+        onTriggered: historyFile.reload()
+    }
+    FileView {
+        id: historyFile
+        path: Qt.resolvedUrl(`${Directories.state}/user/battery_history.json`)
+        onLoaded: {
+            try { root.batteryHistory = JSON.parse(historyFile.text()).samples ?? [] } catch (e) {}
+            // Seed if we have no data older than 1 day (fresh install or new file)
+            const hasHistory = root.batteryHistory.some(s => s[0] < root.nowSec() - 86400)
+            if (root.isTracker && !hasHistory) upowerSeedProc.running = true
+        }
+        onLoadFailed: {
+            if (root.isTracker) upowerSeedProc.running = true
+        }
+    }
+
+    // Seed from UPower's own history files — they go back weeks/months.
+    // Merges with existing data so we don't overwrite our proc-annotated samples.
+    Process {
+        id: upowerSeedProc
+        command: ["bash", "-c",
+            'for f in $(ls -t /var/lib/upower/history-charge-*.dat 2>/dev/null | grep -v generic_id); do ' +
+            '  awk \'$2>0 && $3!="unknown" {print $1, int($2+0.5)}\' "$f"; ' +
+            'done'
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n").filter(l => l.trim())
+                const now = root.nowSec()
+                const cutoff = now - 2 * 365 * 86400
+                // Merge: existing samples take priority (they have proc names)
+                const byTime = new Map()
+                for (const line of lines) {
+                    const p = line.trim().split(/\s+/)
+                    if (p.length < 2) continue
+                    const t = parseInt(p[0]), pct = parseInt(p[1])
+                    if (isNaN(t) || isNaN(pct) || t < cutoff || pct <= 0) continue
+                    byTime.set(t, [t, pct, ""])
+                }
+                // Existing samples overwrite UPower entries at same timestamp
+                for (const s of root.batteryHistory) byTime.set(s[0], s)
+                const merged = Array.from(byTime.values()).sort((a, b) => a[0] - b[0])
+                if (merged.length > root.batteryHistory.length) {
+                    root.batteryHistory = merged
+                    historyFile.setText(JSON.stringify({ samples: merged }))
+                }
+            }
+        }
+    }
 
     // --- Usage tracking (on-battery / screen-on / last full) -----------------
     // This singleton is imported by several quickshell processes at once (the bar
@@ -266,7 +359,7 @@ Singleton {
             screenOnSeconds: root.screenOnSeconds
         }));
     }
-    Component.onCompleted: usageFile.reload()
+    Component.onCompleted: { usageFile.reload(); historyFile.reload() }
     FileView {
         id: usageFile
         path: Qt.resolvedUrl(`${Directories.state}/user/battery_usage.json`)
