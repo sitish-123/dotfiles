@@ -42,6 +42,7 @@ ContentPage {
     }
 
     Process { id: writeColorsProc }
+    Process { id: writeHyprlockProc }
 
     function saveColorsConf() {
         const script = [
@@ -72,6 +73,33 @@ ContentPage {
         writeColorsProc.running = true
     }
 
+    function saveHyprlockBg(path) {
+        const script = [
+            "import sys, re, os",
+            "conf = os.path.expanduser(sys.argv[1])",
+            "bg = sys.argv[2]",
+            "try:",
+            "    lines = open(conf).readlines()",
+            "except:",
+            "    lines = []",
+            "out = []",
+            "found = False",
+            "for line in lines:",
+            "    m = re.match(r'^(\\s*path\\s*=\\s*).*', line)",
+            "    if m:",
+            "        out.append(m.group(1) + bg + '\\n')",
+            "        found = True",
+            "    else:",
+            "        out.append(line)",
+            "if not found:",
+            "    out.append('    path = ' + bg + '\\n')",
+            "open(conf, 'w').writelines(out)",
+        ].join("\n")
+        writeHyprlockProc.command = ["python3", "-c", script,
+            "~/.config/hypr/hyprlock.conf", path]
+        writeHyprlockProc.running = true
+    }
+
     Component.onCompleted: readColorsProc.running = true
 
     Process {
@@ -84,6 +112,20 @@ ContentPage {
                     Config.options.background.wallpaperPathLock = path
                     page.hlBgImage = path
                     page.saveColorsConf()
+                    page.saveHyprlockBg(path)
+                }
+            }
+        }
+    }
+
+    Process {
+        id: homeBgPickerProc
+        command: ["bash", "-c", "zenity --file-selection --title='Choose wallpaper' --file-filter='Images | *.jpg *.jpeg *.png *.webp' 2>/dev/null || kdialog --title 'Choose wallpaper' --getopenfilename \"$HOME\" '*.jpg *.jpeg *.png *.webp'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const path = text.trim()
+                if (path.length > 0) {
+                    Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --image "${path}"`])
                 }
             }
         }
@@ -234,7 +276,7 @@ ContentPage {
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "wallpaper"
-                    onClicked: { Quickshell.execDetached([Directories.wallpaperSwitchScriptPath]) }
+                    onClicked: { homeBgPickerProc.running = true }
                     StyledToolTip { text: Translation.tr("Pick wallpaper image on your system") }
                     mainContentComponent: Component {
                         RowLayout {
@@ -272,8 +314,9 @@ ContentPage {
                     mainText: Translation.tr("Same as desktop")
                     onClicked: {
                         Config.options.background.wallpaperPathLock = ""
-                        page.hlBgImage = ""
+                        page.hlBgImage = Config.options.background.wallpaperPath
                         page.saveColorsConf()
+                        page.saveHyprlockBg(Config.options.background.wallpaperPath)
                     }
                 }
             }
