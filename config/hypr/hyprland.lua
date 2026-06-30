@@ -13,7 +13,6 @@ end
 
 -- Default configurations --
 require("hyprland.execs")
-require("hyprland.general")
 require("hyprland.rules")
 require("hyprland.colors")
 
@@ -21,8 +20,12 @@ require("hyprland.colors")
 if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
     require("custom.execs")
 end
+-- General config: custom/general.lua is the complete replacement when present.
+-- On a fresh install with no custom/general.lua the shipped defaults load.
 if is_file_exists(HOME .. "/.config/hypr/custom/general.lua") then
     require("custom.general")
+else
+    require("hyprland.general")
 end
 -- Display overrides written by Settings > Display (monitor mode/scale/transform + VRR).
 -- Sourced after general.lua so it wins over any monitor= line there.
