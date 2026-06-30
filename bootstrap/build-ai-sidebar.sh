@@ -27,3 +27,8 @@ mkdir -p "$HOME/.local/bin"
 install -m755 "$SRC/build/ai-sidebar" "$HOME/.local/bin/ai-sidebar" \
     && ok "ai-sidebar installed -> ~/.local/bin/ai-sidebar (SUPER+A toggles it)" \
     || warn "couldn't install ai-sidebar binary"
+
+# Install the .desktop so xdg-desktop-portal can resolve the app-id "ai-sidebar"; without it
+# file pickers/uploads fail in the web chats ("App info not found for 'ai-sidebar'").
+install -Dm644 "$SRC/ai-sidebar.desktop" "$HOME/.local/share/applications/ai-sidebar.desktop" \
+    && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=AI Sidebar
+Comment=Gemini / ChatGPT / Claude in a layer-shell sidebar
+Exec=ai-sidebar
+Icon=ai-sidebar
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=ai-sidebar
+# Hidden from app menus (it's toggled via SUPER+A), but xdg-desktop-portal needs this file
+# to exist so the app-id "ai-sidebar" resolves — otherwise file pickers/uploads fail in the
+# web chats with: portal "App info not found for 'ai-sidebar'".
+NoDisplay=true
