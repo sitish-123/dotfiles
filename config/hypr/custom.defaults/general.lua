@@ -18,11 +18,19 @@ hl.monitor({
 -- Gestures
 -- 3-finger "move window" is conditional below (disabled when hyprtasking is active).
 -- 4-finger horizontal: switch workspaces
-hl.gesture({
-    fingers = 4,
-    direction = "horizontal",
-    action = "workspace"
-})
+-- DISABLED — CRASH MITIGATION (Hyprland 0.55.4 core bug). A 4-finger swipe activates
+-- this direction-sensitive CWorkspaceSwipeGesture; when libinput then reclassifies the
+-- same interaction as a PINCH, the pinch dispatcher feeds the swipe gesture a pinch event
+-- {.pinch=&e, .swipe=nullptr} and ITrackpadGesture::distance() derefs e.swipe->delta.x on
+-- a HORIZONTAL gesture -> NULL DEREF -> SEGV (whole compositor dies). The hyprtasking fork
+-- now provides a crash-safe, live 4-finger horizontal workspace switch via the swipe path
+-- (it drives g_pUnifiedWorkspaceSwipe directly, never CTrackpadGestures).
+-- Re-enable only after Hyprland null-guards e.swipe in distance() (or upgrade past the fix).
+-- hl.gesture({
+--     fingers = 4,
+--     direction = "horizontal",
+--     action = "workspace"
+-- })
 
 hl.config({
     gestures = {
