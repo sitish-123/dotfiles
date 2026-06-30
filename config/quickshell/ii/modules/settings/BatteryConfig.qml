@@ -469,6 +469,7 @@ ContentPage {
             property real _hi: _ds.length >= 2 ? Math.min(100, Math.max(..._ds.map(s => s[1])) + 8) : 100
             property real _range: Math.max(_hi - _lo, 1)
             readonly property int _plotHeight: height - 20
+            property int _hovIdx: -1
 
             // Horizontal grid lines at standard battery levels
             Item {
@@ -567,41 +568,112 @@ ContentPage {
                         : new Date(graphArea._ds[graphArea._ds.length - 1][0] * 1000).toLocaleDateString(Qt.locale(), "d MMM")
                 }
             }
-        }
 
-        // Stats strip
-        RowLayout {
-            id: statsRow
-            Layout.fillWidth: true
-            spacing: 0
-            property var _s: historySection.filteredSamples()
-            property var _p: _s.length >= 2 ? _s.map(x => x[1]) : []
-
-            Repeater {
-                model: statsRow._p.length >= 2 ? [
-                    { label: "Min", val: Math.min(...statsRow._p) + "%" },
-                    { label: "Avg", val: Math.round(statsRow._p.reduce((a,b)=>a+b,0)/statsRow._p.length) + "%" },
-                    { label: "Max", val: Math.max(...statsRow._p) + "%" },
-                    { label: "Now", val: Math.round(Battery.percentage * 100) + "%" },
-                ] : []
-                delegate: ColumnLayout {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    spacing: 3
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                        text: modelData.label
-                    }
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        font.pixelSize: Appearance.font.pixelSize.larger
-                        font.weight: Font.Medium
+            // Stats overlay inside graph
+            Row {
+                id: graphStats
+                anchors { left: parent.left; bottom: parent.bottom; bottomMargin: 22; leftMargin: 4 }
+                spacing: 10
+                visible: graphArea._ds.length >= 2
+                property var _p: graphArea._ds.map(x => x[1])
+                Repeater {
+                    model: graphStats._p.length >= 2 ? [
+                        Math.min(...graphStats._p).toFixed(0) + "% min",
+                        (graphStats._p.reduce((a, b) => a + b, 0) / graphStats._p.length).toFixed(0) + "% avg",
+                        Math.max(...graphStats._p).toFixed(0) + "% max",
+                        Math.round(Battery.percentage * 100) + "% now",
+                    ] : []
+                    delegate: StyledText {
+                        required property string modelData
+                        font.pixelSize: Appearance.font.pixelSize.smallest
                         color: Appearance.colors.colOnSurface
-                        text: modelData.val
+                        opacity: 0.45
+                        text: modelData
                     }
                 }
+            }
+
+            // Hover crosshair
+            Rectangle {
+                visible: graphArea._hovIdx >= 0
+                x: graphArea._hovIdx >= 0 && graphArea._ds.length > 1
+                    ? (graphArea._hovIdx / (graphArea._ds.length - 1)) * historyGraph.width : 0
+                width: 1; height: graphArea._plotHeight
+                color: Appearance.colors.colOnSurface; opacity: 0.35
+            }
+
+            // Hover dot on curve
+            Rectangle {
+                id: hoverDot
+                visible: graphArea._hovIdx >= 0
+                readonly property real _px: graphArea._hovIdx >= 0 && graphArea._ds.length > 1
+                    ? (graphArea._hovIdx / (graphArea._ds.length - 1)) * historyGraph.width : 0
+                readonly property real _py: graphArea._hovIdx >= 0 && graphArea._hovIdx < graphArea._ds.length
+                    ? (1 - (graphArea._ds[graphArea._hovIdx][1] - graphArea._lo) / graphArea._range) * graphArea._plotHeight : 0
+                x: _px - 4; y: _py - 4
+                width: 8; height: 8; radius: 4
+                color: Appearance.colors.colPrimary
+                border.width: 2; border.color: Appearance.colors.colLayer1
+            }
+
+            // Hover tooltip
+            Rectangle {
+                id: hoverTip
+                visible: graphArea._hovIdx >= 0
+                readonly property var _s: graphArea._hovIdx >= 0 && graphArea._hovIdx < graphArea._ds.length
+                    ? graphArea._ds[graphArea._hovIdx] : null
+                width: tipCol.implicitWidth + 16
+                height: tipCol.implicitHeight + 12
+                x: {
+                    const tx = hoverDot._px + 14
+                    return tx + width > historyGraph.width ? hoverDot._px - width - 14 : tx
+                }
+                y: Math.max(0, Math.min(graphArea._plotHeight - height, hoverDot._py - height / 2))
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer1
+                ColumnLayout {
+                    id: tipCol
+                    anchors { left: parent.left; top: parent.top; margins: 8 }
+                    spacing: 1
+                    StyledText {
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        color: Appearance.colors.colSubtext
+                        text: hoverTip._s ? (historySection.rangeDays === 1
+                            ? new Date(hoverTip._s[0] * 1000).toLocaleTimeString(Qt.locale(), "HH:mm")
+                            : new Date(hoverTip._s[0] * 1000).toLocaleString(Qt.locale(), "d MMM HH:mm"))
+                            : ""
+                    }
+                    StyledText {
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        font.weight: Font.Medium
+                        color: Appearance.colors.colOnSurface
+                        text: hoverTip._s ? Math.round(hoverTip._s[1]) + "%" : ""
+                    }
+                    StyledText {
+                        visible: hoverTip._s && hoverTip._s.length > 2
+                            && typeof hoverTip._s[2] === "number" && hoverTip._s[2] !== 0
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        color: Appearance.colors.colSubtext
+                        text: hoverTip._s && hoverTip._s.length > 2
+                            ? Math.abs(hoverTip._s[2]).toFixed(1) + " W" : ""
+                    }
+                }
+            }
+
+            // Hover detection
+            MouseArea {
+                anchors { left: parent.left; right: yAxis.left; top: parent.top; rightMargin: 6 }
+                height: graphArea._plotHeight
+                hoverEnabled: true
+                propagateComposedEvents: true
+                onPositionChanged: {
+                    if (graphArea._ds.length < 2) { graphArea._hovIdx = -1; return }
+                    graphArea._hovIdx = Math.max(0, Math.min(
+                        graphArea._ds.length - 1,
+                        Math.round((mouseX / width) * (graphArea._ds.length - 1))
+                    ))
+                }
+                onExited: graphArea._hovIdx = -1
             }
         }
 

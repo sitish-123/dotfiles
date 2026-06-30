@@ -26,7 +26,6 @@ ContentPage {
     function trySeed() {
         if (!seeded && monitorsLoaded && vrrLoaded && monitors.length > 0) {
             seeded = true;
-            persistDisplay();
         }
     }
 
