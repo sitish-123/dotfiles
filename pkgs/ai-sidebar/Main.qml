@@ -53,21 +53,23 @@ Window {
         offTheRecord: false
     }
 
-    Rectangle {                          // rounded translucent panel (surface already inset)
-        id: panel
+    Rectangle {                          // uniform dark panel; web fills it edge-to-edge.
+        id: panel                        // Corners are rounded by Hyprland's surface rounding.
         anchors.fill: parent
-        radius: 18
-        color: Qt.rgba(0.07, 0.07, 0.09, 0.55)   // translucent -> Hyprland blur frosts it
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.06)
+        radius: 16
+        color: "#1b1b22"                 // == WebEngineView bg -> one color edge-to-edge
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 10
+            anchors.margins: 0           // web goes edge-to-edge
+            spacing: 0
 
-            RowLayout {                  // pill switcher
+            RowLayout {                  // pill switcher (only this has padding)
                 Layout.fillWidth: true
+                Layout.topMargin: 10
+                Layout.leftMargin: 10
+                Layout.rightMargin: 10
+                Layout.bottomMargin: 8
                 spacing: 8
                 Repeater {
                     model: win.tabs
@@ -97,10 +99,9 @@ Window {
                 }
             }
 
-            Rectangle {                  // rounded container for the web views
+            Rectangle {                  // web area, edge-to-edge (rounded by the compositor)
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                radius: 12
                 color: "#1b1b22"
                 clip: true
                 StackLayout {
