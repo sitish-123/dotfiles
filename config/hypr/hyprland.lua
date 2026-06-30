@@ -16,7 +16,6 @@ require("hyprland.execs")
 require("hyprland.general")
 require("hyprland.rules")
 require("hyprland.colors")
-require("hyprland.keybinds")
 
 -- Custom configurations --
 if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
@@ -33,8 +32,13 @@ end
 if is_file_exists(HOME .. "/.config/hypr/custom/rules.lua") then
     require("custom.rules")
 end
+-- Keybinds: custom/keybinds.lua is the complete replacement when present
+-- (hyprland/keybinds.lua is skipped to avoid duplicate bindings).
+-- On a fresh install with no custom/keybinds.lua the shipped defaults load.
 if is_file_exists(HOME .. "/.config/hypr/custom/keybinds.lua") then
     require("custom.keybinds")
+else
+    require("hyprland.keybinds")
 end
 
 -- nwg-displays support --
