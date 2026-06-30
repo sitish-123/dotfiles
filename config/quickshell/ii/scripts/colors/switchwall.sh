@@ -315,7 +315,12 @@ switch() {
     python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
         > "$STATE_DIR"/user/generated/material_colors.scss
     deactivate
-    "$SCRIPT_DIR"/applycolor.sh
+
+    # Skip terminal color application when called from settings (--noswitch)
+    # to avoid SIGUSR1 to kitty / PTY writes causing unwanted workspace focus shift.
+    if [[ -z "$noswitch_flag" ]]; then
+        "$SCRIPT_DIR"/applycolor.sh
+    fi
 
     # Pass screen width, height, and wallpaper path to post_process
     max_width_desired="$(hyprctl monitors -j | jq '([.[].width] | min)' | xargs)"

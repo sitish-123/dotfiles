@@ -154,7 +154,7 @@ ContentPage {
         property color colText: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
         padding: 6
         Layout.fillWidth: true
-        Layout.minimumHeight: 44
+        Layout.minimumHeight: 50
         toggled: Appearance.m3colors.darkmode === dark
         colBackground: Appearance.colors.colLayer2
         onClicked: {
@@ -498,18 +498,13 @@ ContentPage {
         title: Translation.tr("Appearance mode")
         Layout.fillWidth: true
 
-        Item {
+        RowLayout {
             Layout.fillWidth: true
-            implicitHeight: 44
-            RowLayout {
-                anchors.centerIn: parent
-                width: Math.min(parent.width * 0.5, 300)
-                height: parent.height
-                spacing: 8
-                uniformCellSizes: true
-                SmallLightDarkPreferenceButton { dark: false; Layout.fillHeight: true }
-                SmallLightDarkPreferenceButton { dark: true; Layout.fillHeight: true }
-            }
+            Layout.minimumHeight: 50
+            spacing: 8
+            SmallLightDarkPreferenceButton { dark: false }
+            SmallLightDarkPreferenceButton { dark: true }
+            Item { Layout.fillWidth: true }
         }
     }
 

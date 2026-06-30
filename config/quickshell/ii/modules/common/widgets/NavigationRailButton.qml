@@ -37,9 +37,9 @@ TabButton {
             top: parent.top
             bottom: parent.bottom
             left: parent.left
-            right: undefined
+            right: parent.right
         }
-        
+        clip: true
         implicitWidth: root.visualWidth
         implicitHeight: root.expanded ? itemIconBackground.implicitHeight : itemIconBackground.implicitHeight + itemText.implicitHeight 
 
@@ -63,11 +63,8 @@ TabButton {
                     target: itemBackground
                     anchors.top: buttonContent.top
                     anchors.left: buttonContent.left
+                    anchors.right: buttonContent.right
                     anchors.bottom: buttonContent.bottom
-                }
-                PropertyChanges {
-                    target: itemBackground
-                    implicitWidth: root.visualWidth
                 }
             }
             transitions: Transition {
@@ -75,13 +72,6 @@ TabButton {
                     duration: Appearance.animation.elementMoveFast.duration
                     easing.type: Appearance.animation.elementMoveFast.type
                     easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                }
-                PropertyAnimation {
-                    target: itemBackground
-                    property: "implicitWidth"
-                    duration: Appearance.animation.elementMove.duration
-                    easing.type: Appearance.animation.elementMove.type
-                    easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
                 }
             }
 
@@ -131,6 +121,7 @@ TabButton {
                         top: undefined
                         horizontalCenter: undefined
                         left: itemIconBackground.right
+                        right: buttonContent.right
                         verticalCenter: itemIconBackground.verticalCenter
                     }
                 }
@@ -145,6 +136,7 @@ TabButton {
             text: buttonText
             font.pixelSize: 14
             color: Appearance.colors.colOnLayer1
+            elide: Text.ElideRight
         }
     }
 
