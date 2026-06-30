@@ -3,7 +3,16 @@
 source "$(dirname "$0")/lib/common.sh"
 
 info "Pulling dotfiles"
-git -C "$DOT_ROOT" pull --ff-only || warn "pull skipped (local changes? run sync.sh first)"
+git -C "$DOT_ROOT" fetch origin
+# Before merging: apply the remote .gitignore and untrack any files it now ignores.
+# This prevents "local changes overwritten" errors when upstream does a `git rm --cached`
+# on machine-specific files (e.g. config.json, custom/*.lua). Safe to run on every update.
+if _ri="$(git -C "$DOT_ROOT" show FETCH_HEAD:.gitignore 2>/dev/null)"; then
+    printf '%s\n' "$_ri" > "$DOT_ROOT/.gitignore"
+    git -C "$DOT_ROOT" ls-files -z --ignored --exclude-standard | \
+        xargs -0 -r git -C "$DOT_ROOT" rm --cached -- 2>/dev/null || true
+fi
+git -C "$DOT_ROOT" merge --ff-only FETCH_HEAD || warn "pull skipped (local changes? run sync.sh first)"
 
 info "Updating submodules (hyprtasking fork)"
 git -C "$DOT_ROOT" submodule update --init --remote --recursive || warn "submodule update failed"
