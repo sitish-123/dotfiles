@@ -19,6 +19,10 @@ config/illogical-impulse/actions/
 # custom/ lua files are user-owned — seeded once from custom.defaults/ by install.sh,
 # never overwritten by git pull. Edit them freely; updates only touch custom.defaults/.
 config/hypr/custom/*.lua
+# device-specific monitor state — Settings > Display owns custom/display.lua; these
+# must never be committed (they pin one machine's panel and override display.lua).
+config/hypr/monitors.lua
+config/hypr/hyprland.conf
 config/**/*.bak
 config/**/*.bak-*
 config/quickshell/ii/_*.qml
