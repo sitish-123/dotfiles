@@ -128,7 +128,25 @@ Singleton {
                 root.scheduleUpdate(true, false, false, false);
                 return;
             }
-            // Any other (structural) event: refresh everything, but coalesced/debounced.
+            // Workspace focus/lifecycle + monitor focus events do NOT change the client
+            // list or layers — no window moves when you just switch/create/destroy/rename a
+            // workspace. Refetching `hyprctl clients` (+ parsing it on the main thread) on
+            // every workspace switch is what janked the bar's sliding pill animation: the
+            // parse landed ~80ms later, right inside the pill's 300ms slide, and dropped
+            // frames. Refresh only workspaces + monitors for these (cheap), never clients.
+            if (name === "workspace" || name === "workspacev2"
+                || name === "focusedmon" || name === "focusedmonv2"
+                || name === "activespecial" || name === "activespecialv2"
+                || name === "createworkspace" || name === "createworkspacev2"
+                || name === "destroyworkspace" || name === "destroyworkspacev2"
+                || name === "moveworkspace" || name === "moveworkspacev2"
+                || name === "renameworkspace") {
+                root.scheduleUpdate(false, true, true, false);
+                return;
+            }
+            // Any other (structural) event that can move/add/remove windows (openwindow,
+            // closewindow, movewindow, fullscreen, changefloatingmode, pin, …): refresh
+            // everything, coalesced/debounced.
             root.scheduleUpdate(true, true, true, true);
         }
     }
