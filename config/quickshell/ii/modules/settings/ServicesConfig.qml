@@ -260,8 +260,9 @@ ContentPage {
             placeholderText: Translation.tr("City name")
             text: Config.options.bar.weather.city
             wrapMode: TextEdit.Wrap
+            acceptsReturn: false
             onTextChanged: {
-                Config.options.bar.weather.city = text;
+                Config.options.bar.weather.city = text.trim();
             }
         }
         ConfigSpinBox {

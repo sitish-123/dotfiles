@@ -18,7 +18,7 @@ Singleton {
         2079: [31,31,32,31,31,31,30,29,30,29,30,30],
         2080: [31,31,32,32,31,30,30,29,30,29,30,30],
         2081: [31,32,31,32,31,30,30,30,29,29,30,30],
-        2082: [31,31,31,32,31,31,29,30,30,29,30,30],
+        2082: [31,32,32,31,31,31,29,30,30,29,30,30],
         2083: [31,31,32,31,31,31,30,29,30,29,30,30],
         2084: [31,31,32,32,31,30,30,29,30,29,30,30],
         2085: [31,32,31,32,31,30,30,30,29,29,30,30],
@@ -61,7 +61,8 @@ Singleton {
 
     function toBS(adDate) {
         const ref = new Date(_rY, _rM, _rD)
-        let rem = Math.round((adDate - ref) / 86400000)
+        const adMidnight = new Date(adDate.getFullYear(), adDate.getMonth(), adDate.getDate())
+        let rem = Math.round((adMidnight - ref) / 86400000)
         let y = _rBY, m = _rBM, d = _rBD
         if (rem >= 0) {
             while (rem > 0) {
