@@ -23,3 +23,6 @@ config/**/*.bak
 config/**/*.bak-*
 config/quickshell/ii/_*.qml
 config/quickshell/ii/modules/settings/_t.qml
+
+config/hypr/hyprland/colors.lua
+config/hypr/hyprlock/colors.conf
