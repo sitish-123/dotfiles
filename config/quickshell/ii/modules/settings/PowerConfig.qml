@@ -63,14 +63,6 @@ ContentPage {
                 onValueChanged: { Config.options.idle.suspendMinutes = value; page.applyIdle(); }
             }
         }
-        StyledText {
-            Layout.fillWidth: true
-            Layout.topMargin: 6
-            wrapMode: Text.Wrap
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            text: Translation.tr("These drive hypridle. Changes apply a moment after you stop editing (hypridle restarts).")
-        }
     }
 
     ContentSection {
@@ -118,13 +110,5 @@ ContentPage {
             onCheckedChanged: Config.options.battery.automaticSuspend = checked
         }
 
-        StyledText {
-            Layout.fillWidth: true
-            Layout.topMargin: 6
-            wrapMode: Text.Wrap
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            text: Translation.tr("Power profiles (performance/balanced/saver) need power-profiles-daemon, which is masked on this system for the network/boot tuning. Unmask it to enable profile switching here.")
-        }
     }
 }

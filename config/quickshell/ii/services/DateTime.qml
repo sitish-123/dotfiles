@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -23,6 +24,20 @@ Singleton {
     property string date: Qt.locale().toString(clock.date, Config.options?.time.dateWithYearFormat ?? "dd/MM/yyyy")
     property string longDate: Qt.locale().toString(clock.date, Config.options?.time.dateFormat ?? "dddd, dd/MM")
     property string collapsedCalendarFormat: Qt.locale().toString(clock.date, "dddd, MMMM dd")
+    property string nepaliDate: {
+        if (!Config.options?.calendar?.useNepali) return ""
+        const bs = NepaliDate.toBS(clock.date)
+        return NepaliDate.formatBS(bs, Config.options?.calendar?.nepaliFormat ?? "dayMonth")
+    }
+    property string nepaliFullDate: {
+        if (!Config.options?.calendar?.useNepali) return ""
+        const bs = NepaliDate.toBS(clock.date)
+        return NepaliDate.formatBS(bs, "monthName")
+    }
+    property string nepaliYearMonth: {
+        if (!Config.options?.calendar?.useNepali) return ""
+        return NepaliDate.yearMonthBS(clock.date)
+    }
     property string uptime: "0h, 0m"
 
     Timer {

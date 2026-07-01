@@ -220,6 +220,7 @@ Singleton {
                     }
                 }
                 property string wallpaperPath: ""
+                property string wallpaperPathLock: "" // Lock-screen wallpaper; empty = same as desktop
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {
@@ -278,8 +279,8 @@ Singleton {
                 }
                 property JsonObject weather: JsonObject {
                     property bool enable: false
-                    property bool enableGPS: true // gps based location
-                    property string city: "" // When 'enableGPS' is false
+                    property bool enableGPS: false // gps based location
+                    property string city: "Kathmandu" // City name for weather
                     property bool useUSCS: false // Instead of metric (SI) units
                     property int fetchInterval: 10 // minutes
                 }
@@ -303,6 +304,9 @@ Singleton {
 
             property JsonObject calendar: JsonObject {
                 property string locale: "en-GB"
+                property bool useNepali: false
+                property string nepaliFormat: "dayMonth" // "dayMonth", "monthName", "short", "devanagari", "numerals"
+                property int firstDayOfWeek: 1 // 1=Monday, 0=Sunday
             }
 
             property JsonObject cheatsheet: JsonObject {
@@ -390,6 +394,10 @@ Singleton {
                 }
                 property bool centerClock: true
                 property bool showLockedText: true
+                property JsonObject widgets: JsonObject {
+                    property bool clock: true   // Show the clock widget on the lock screen
+                    property bool weather: false // Show the weather widget on the lock screen
+                }
                 property JsonObject security: JsonObject {
                     property bool unlockKeyring: true
                     property bool requirePasswordToPower: false

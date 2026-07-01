@@ -39,9 +39,12 @@ Variants {
         property int lastWorkspaceId: relevantWindows[relevantWindows.length - 1]?.workspace.id || 10
         property int workspaceChunkSize: Config?.options.bar.workspaces.shown ?? 10
         property int totalWorkspaces: Math.ceil(lastWorkspaceId / workspaceChunkSize) * workspaceChunkSize
-        // Wallpaper
-        property bool wallpaperIsVideo: Config.options.background.wallpaperPath.endsWith(".mp4") || Config.options.background.wallpaperPath.endsWith(".webm") || Config.options.background.wallpaperPath.endsWith(".mkv") || Config.options.background.wallpaperPath.endsWith(".avi") || Config.options.background.wallpaperPath.endsWith(".mov")
-        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath
+        // Wallpaper. When locked and a lock-screen wallpaper is set, use it; otherwise the desktop one.
+        property string activeWallpaperPath: (GlobalStates.screenLocked && Config.options.background.wallpaperPathLock.length > 0)
+            ? Config.options.background.wallpaperPathLock
+            : Config.options.background.wallpaperPath
+        property bool wallpaperIsVideo: activeWallpaperPath.endsWith(".mp4") || activeWallpaperPath.endsWith(".webm") || activeWallpaperPath.endsWith(".mkv") || activeWallpaperPath.endsWith(".avi") || activeWallpaperPath.endsWith(".mov")
+        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : activeWallpaperPath
         property bool wallpaperSafetyTriggered: {
             const enabled = Config.options.workSafety.enable.wallpaper;
             const sensitiveWallpaper = (CF.StringUtils.stringListContainsSubstring(wallpaperPath.toLowerCase(), Config.options.workSafety.triggerCondition.fileKeywords));
@@ -261,7 +264,7 @@ Variants {
                 }
 
                 FadeLoader {
-                    shown: Config.options.background.widgets.weather.enable
+                    shown: Config.options.background.widgets.weather.enable || Config.options.lock.widgets.weather
                     sourceComponent: WeatherWidget {
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
@@ -272,7 +275,7 @@ Variants {
                 }
 
                 FadeLoader {
-                    shown: Config.options.background.widgets.clock.enable
+                    shown: Config.options.background.widgets.clock.enable || Config.options.lock.widgets.clock
                     sourceComponent: ClockWidget {
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height

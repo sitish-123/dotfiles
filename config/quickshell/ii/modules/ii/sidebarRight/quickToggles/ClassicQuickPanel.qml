@@ -31,6 +31,7 @@ AbstractQuickPanel {
             }
         }
         NightLight {}
+        DateToggle {}
         GameMode {}
         IdleInhibitor {}
         EasyEffectsToggle {}

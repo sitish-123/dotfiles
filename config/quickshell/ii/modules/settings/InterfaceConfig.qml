@@ -329,15 +329,7 @@ ContentPage {
         }
 
         RowLayout {
-            StyledText {
-                Layout.leftMargin: 10
-                color: Appearance.colors.colSubtext
-                font.pixelSize: Appearance.font.pixelSize.smallie
-                text: Translation.tr("Press Super+G to open the overlay and pin the crosshair")
-            }
-            Item {
-                Layout.fillWidth: true
-            }
+            Item { Layout.fillWidth: true }
             RippleButtonWithIcon {
                 id: editorButton
                 buttonRadius: Appearance.rounding.full

@@ -43,6 +43,13 @@ StyledPopup {
         }
 
         StyledPopupValueRow {
+            visible: Config.options?.calendar?.useNepali ?? false
+            icon: "translate"
+            label: Translation.tr("Nepali date (BS):")
+            value: DateTime.nepaliFullDate
+        }
+
+        StyledPopupValueRow {
             icon: "timelapse"
             label: Translation.tr("System uptime:")
             value: root.formattedUptime

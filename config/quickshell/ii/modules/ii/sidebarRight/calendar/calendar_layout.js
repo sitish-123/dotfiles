@@ -1,12 +1,14 @@
-const weekDays = [ // MONDAY IS THE FIRST DAY OF THE WEEK :HESRIGHTYOUKNOW:
-    { day: 'Mo', today: 0 },
-    { day: 'Tu', today: 0 },
-    { day: 'We', today: 0 },
-    { day: 'Th', today: 0 },
-    { day: 'Fr', today: 0 },
-    { day: 'Sa', today: 0 },
-    { day: 'Su', today: 0 },
-]
+// Returns the week-header row for a given first day (0=Sun, 1=Mon)
+function getWeekDays(firstDay) {
+    const all = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+    const days = []
+    for (let i = 0; i < 7; i++)
+        days.push({ day: all[(firstDay + i) % 7], today: 0 })
+    return days
+}
+
+// Kept for callers that haven't switched yet (Monday default)
+const weekDays = getWeekDays(1)
 
 function checkLeapYear(year) {
     return (
@@ -54,15 +56,14 @@ function getDateInXMonthsTime(x) {
     // Create a new date object with the target year and month
     var targetDate = new Date(targetYear, targetMonth, 1);
 
-    // Set the day to the last day of the month to get the desired date
-    // targetDate.setDate(0);
-
     return targetDate;
 }
 
-function getCalendarLayout(dateObject, highlight) {
+// firstDay: 0=Sunday, 1=Monday (default 1)
+function getCalendarLayout(dateObject, highlight, firstDay) {
+    if (firstDay === undefined) firstDay = 1;
     if (!dateObject) dateObject = new Date();
-    const weekday = (dateObject.getDay() + 6) % 7; // MONDAY IS THE FIRST DAY OF THE WEEK
+    const weekday = (dateObject.getDay() - firstDay + 7) % 7;
     const day = dateObject.getDate();
     const month = dateObject.getMonth() + 1;
     const year = dateObject.getFullYear();
@@ -87,6 +88,7 @@ function getCalendarLayout(dateObject, highlight) {
     while (i < 6 && j < 7) {
         calendar[i][j] = {
             "day": toFill,
+            "monthDiff": monthDiff,
             "today": ((toFill == day && monthDiff == 0 && highlight) ? 1 : (
                 monthDiff == 0 ? 0 : -1
             ))

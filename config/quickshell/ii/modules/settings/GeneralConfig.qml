@@ -340,6 +340,53 @@ ContentPage {
     }
 
     ContentSection {
+        icon: "calendar_month"
+        title: Translation.tr("Calendar")
+
+        ContentSubsection {
+            title: Translation.tr("Date system")
+            tooltip: Translation.tr("Which calendar system to show in the bar and popups")
+
+            ConfigSelectionArray {
+                currentValue: Config.options.calendar.useNepali ? 1 : 0
+                onSelected: newValue => {
+                    Config.options.calendar.useNepali = (newValue === 1)
+                }
+                options: [
+                    { displayName: Translation.tr("Gregorian"), icon: "public", value: 0 },
+                    { displayName: Translation.tr("Nepali (BS)"), icon: "language", value: 1 },
+                ]
+            }
+        }
+
+        ContentSubsection {
+            visible: Config.options.calendar.useNepali
+            title: Translation.tr("Nepali date format (bar)")
+            tooltip: Translation.tr("How the Nepali date appears in the top bar")
+
+            ConfigSelectionArray {
+                currentValue: Config.options.calendar.nepaliFormat
+                onSelected: newValue => {
+                    Config.options.calendar.nepaliFormat = newValue
+                }
+                options: [
+                    { displayName: Translation.tr("Mon DD"), value: "dayMonth" },
+                    { displayName: Translation.tr("Mon DD, YYYY"), value: "monthName" },
+                    { displayName: Translation.tr("DD/MM/YYYY"), value: "short" },
+                    { displayName: Translation.tr("देवनागरी"), value: "devanagari" },
+                    { displayName: Translation.tr("देव + अंक"), value: "numerals" },
+                ]
+            }
+
+            StyledText {
+                opacity: 0.6
+                font.pixelSize: Appearance.font.pixelSize.small
+                text: Translation.tr("Preview: ") + NepaliDate.formatBS(NepaliDate.toBS(new Date()), Config.options.calendar.nepaliFormat)
+            }
+        }
+    }
+
+    ContentSection {
         icon: "work_alert"
         title: Translation.tr("Work safety")
 
