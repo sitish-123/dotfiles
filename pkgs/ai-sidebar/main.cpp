@@ -9,6 +9,8 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QObject>
+#include <QQuickWindow>
+#include <QRegion>
 
 class Controller : public QObject {
     Q_OBJECT
@@ -64,6 +66,21 @@ int main(int argc, char *argv[]) {
     engine.loadFromModule("aisidebar", "Main");
     if (engine.rootObjects().isEmpty())
         return -1;
+
+    // Click-through when hidden. The surface stays mapped the whole time (so QtWebEngine keeps
+    // its painted frame and never comes back black), but a mapped layer surface keeps its full
+    // input region even when its pixels are transparent — so a "hidden" panel would still eat
+    // every click over its strip. (Hyprland's ignore_alpha only skips transparent pixels for
+    // BLUR, not input.) So we shrink the window's input region to a 1px area off-screen while
+    // hidden; clicks then fall through to whatever is underneath. Shown -> clear the mask
+    // (whole window interactive again).
+    if (auto *win = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst())) {
+        auto applyMask = [win, &controller]() {
+            win->setMask(controller.shown() ? QRegion() : QRegion(-1, -1, 1, 1));
+        };
+        QObject::connect(&controller, &Controller::shownChanged, win, applyMask);
+        applyMask();
+    }
 
     // Surface positioning (the float gap, and sliding off-screen when closed) is driven from
     // QML via LayerShell.Window.margins so it can react to show/hide — see Main.qml. The

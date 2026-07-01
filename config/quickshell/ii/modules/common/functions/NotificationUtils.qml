@@ -104,8 +104,16 @@ Singleton {
             }
         }
 
+        // Strip outer <html>...</html> wrapper (crash reporters like GNOME wrap body in full HTML)
+        if (/^\s*<html/i.test(processedBody)) {
+            processedBody = processedBody.replace(/^\s*<html[^>]*>/i, '').replace(/<\/html>\s*$/i, '').trim();
+        }
+
+        // Convert <tt> (teletype/monospace) — not supported by StyledText — to bold
+        processedBody = processedBody.replace(/<tt>/gi, '<b>').replace(/<\/tt>/gi, '</b>');
+
         processedBody = processedBody.replace(/<img/gi, '\n\n<img');
-        
+
         return processedBody
     }
 }

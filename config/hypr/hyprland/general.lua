@@ -16,21 +16,27 @@ hl.monitor({
 --     direction = "swipe",
 --     action = "move"
 -- })
--- CRASH MITIGATION (Hyprland 0.55.4 core bug): doing a 3-finger PINCH segfaults
--- the compositor (pinch event routed into CWorkspaceSwipeGesture::update). The
--- 3-finger pinch->fullscreen gesture is disabled to avoid triggering it. The
--- 4-finger horizontal workspace swipe worked fine before, so it stays.
--- Re-enable the pinch gesture once Hyprland fixes the pinch path.
+-- CRASH MITIGATION (Hyprland 0.55.4 core bug): a multi-finger PINCH segfaults the
+-- compositor. A swipe activates a direction-sensitive CWorkspaceSwipeGesture; when
+-- libinput then reclassifies the same interaction as a pinch, the pinch dispatcher feeds
+-- that swipe gesture a pinch event {.pinch=&e, .swipe=nullptr} and
+-- ITrackpadGesture::distance() derefs e.swipe->delta.x -> NULL DEREF -> SEGV. So NO
+-- swipe-direction native trackpad gesture is safe while doing multi-finger gestures.
+-- Both the 3-finger pinch->fullscreen AND the 4-finger horizontal workspace swipe are
+-- disabled; the hyprtasking fork provides a crash-safe live 4-finger horizontal switch
+-- via the swipe path (drives g_pUnifiedWorkspaceSwipe, never CTrackpadGestures).
+-- Re-enable only after Hyprland null-guards e.swipe in distance() (or upgrade past it).
+-- NOTE: this file is NOT sourced when custom/general.lua exists (the live config).
 -- hl.gesture({
 --     fingers = 3,
 --     direction = "pinch",
 --     action = "fullscreen"
 -- })
-hl.gesture({
-    fingers = 4,
-    direction = "horizontal",
-    action = "workspace"
-})
+-- hl.gesture({
+--     fingers = 4,
+--     direction = "horizontal",
+--     action = "workspace"
+-- })
 -- NOTE: 4-finger up/down gestures are now handled by the hyprtasking overview
 -- in ~/.config/hypr/custom/general.lua. The quickshell overview remains on
 -- SUPER+Tab. If you want the quickshell overview back on a 4-finger swipe,

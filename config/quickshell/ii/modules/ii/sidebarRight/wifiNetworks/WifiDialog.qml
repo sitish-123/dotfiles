@@ -63,9 +63,14 @@ WindowDialog {
         target: Network
         function onWifiEnabledChanged() { if (Network.wifiEnabled) Network.rescanWifi(); }
     }
+    // Periodic rescan to keep the list fresh — but NOT while the user is interacting
+    // (expanding a network, typing a password, connecting, or using the hidden/QR
+    // panels). A rescan rebuilds/reorders the model and would yank the input form
+    // out from under them. It resumes the moment they're done.
     Timer {
         interval: 6000
-        running: Network.wifiEnabled
+        running: Network.wifiEnabled && !Network.userInteracting
+            && !hiddenSection.open && !qrScanProc.running
         repeat: true
         onTriggered: Network.rescanWifi()
     }
@@ -119,16 +124,26 @@ WindowDialog {
         }
     }
 
-    WindowDialogSeparator {
-        visible: !Network.wifiScanning
-    }
-    StyledIndeterminateProgressBar {
-        visible: Network.wifiScanning
+    // Full-width divider that turns INTO the scan progress line in place. Both share a
+    // fixed 4px slot so toggling scanning on/off never shifts the layout (the old code
+    // swapped a 1px separator for a taller progress bar, jumping the header every 6s).
+    Item {
         Layout.fillWidth: true
         Layout.topMargin: -8
         Layout.bottomMargin: -8
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
+        implicitHeight: 4
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+            height: 1
+            color: Appearance.colors.colOutline
+            visible: !Network.wifiScanning
+        }
+        StyledIndeterminateProgressBar {
+            anchors.fill: parent
+            visible: Network.wifiScanning
+        }
     }
 
     StyledText { // Empty / off states

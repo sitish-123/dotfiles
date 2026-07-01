@@ -82,6 +82,20 @@ if [ -f "$BTCONF" ]; then
     ok "Bluetooth tuned (FastConnectable/AutoEnable/Reconnect)"
 fi
 
+# 4b-2) Bluetooth pairing agent ----------------------------------------------
+# ii ships no blueman/gnome-bluetooth, so nothing registers a BlueZ pairing
+# agent — without one, the sidebar/settings can't pair ANY device (even no-PIN
+# earbuds): they half-connect then drop, with no popup. This user service is
+# that missing agent (NoInputNoOutput, "Just Works"). See system/user/.
+info "Bluetooth: installing persistent pairing agent (user service)"
+install -Dm755 "$SYS/user/bluetooth-agent.sh" "$HOME/.local/bin/bluetooth-agent"
+install -Dm644 "$SYS/user/bluetooth-agent.service" \
+    "$HOME/.config/systemd/user/bluetooth-agent.service"
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now bluetooth-agent.service 2>/dev/null || \
+    warn "couldn't enable bluetooth-agent (run inside your graphical session)"
+ok "Bluetooth pairing agent installed & enabled"
+
 # 4c) Face unlock (howdy) ----------------------------------------------------
 # pam_howdy is "sufficient", so a failed face-match just falls through to the
 # password — it can't lock you out, which makes auto-wiring hyprlock safe.

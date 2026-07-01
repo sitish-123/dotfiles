@@ -11,11 +11,15 @@ DialogListItem {
     readonly property bool isConnected: device?.connected ?? false
     readonly property bool isPaired: device?.paired ?? false
     readonly property bool isBusy: (device?.pairing ?? false)
-    property bool expanded: false  // item-local (device is a native object, can't add props)
+    // Expanded state is OWNED BY THE PARENT (keyed by device address) so it survives the
+    // delegate being rebuilt/reordered as new devices stream in during a scan. A local
+    // bool would reset on every reorder — collapsing the panel mid-interaction.
+    property bool expanded: false
+    signal toggleExpand()
     pointingHandCursor: true
 
     active: root.expanded || root.isConnected
-    onClicked: root.expanded = !root.expanded
+    onClicked: root.toggleExpand()
 
     contentItem: ColumnLayout {
         anchors {
