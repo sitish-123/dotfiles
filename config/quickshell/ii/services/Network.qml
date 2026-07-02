@@ -21,6 +21,10 @@ Singleton {
     property bool wifiScanning: false
     property bool wifiConnecting: connectProc.running || connectEnterpriseProc.running
     property WifiAccessPoint wifiConnectTarget
+    // SSIDs of saved NM connection profiles (con-name == SSID here). Used to mark
+    // scanned APs as `saved` so the UI can offer a one-tap reconnect instead of
+    // re-prompting for credentials. Refreshed alongside every AP scan.
+    property var savedWifiProfiles: []
     readonly property list<WifiAccessPoint> wifiNetworks: []
     readonly property WifiAccessPoint active: wifiNetworks.find(n => n.active) ?? null
     // Active first, then by signal *bucketed* to 20% steps, then SSID alphabetically.
@@ -82,6 +86,7 @@ Singleton {
     function rescanWifi(): void {
         wifiScanning = true;
         rescanProcess.running = true;
+        getSavedProfiles.running = true;
     }
 
     function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
@@ -90,6 +95,16 @@ Singleton {
         // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
         connectProc.exec(["nmcli", "dev", "wifi", "connect", accessPoint.ssid])
 
+    }
+
+    // Bring up an already-saved profile using its stored secrets — no delete, no
+    // re-prompt. This is the fast-path for saved networks (crucially enterprise/
+    // 802.1X, whose EAP password can't be re-supplied from a scan the way a PSK can),
+    // so they don't ask for credentials again every session.
+    function connectSavedNetwork(accessPoint: WifiAccessPoint): void {
+        accessPoint.askingPassword = false;
+        root.wifiConnectTarget = accessPoint;
+        connectProc.exec(["nmcli", "connection", "up", "id", accessPoint.ssid]);
     }
 
     function disconnectWifiNetwork(): void {
@@ -127,6 +142,7 @@ Singleton {
     // open dialog stays in sync. rescanWifi() does the slow NIC rescan for new APs.
     function refreshNetworks(): void {
         getNetworks.running = true;
+        getSavedProfiles.running = true;
     }
 
     // --- Share (QR + reveal password) ------------------------------------------
@@ -188,7 +204,10 @@ Singleton {
         stdout: SplitParser {
             onRead: getNetworks.running = true
         }
-        onExited: root.update()
+        onExited: {
+            getSavedProfiles.running = true;
+            root.update();
+        }
     }
 
     function openPublicWifiPortal() {
@@ -205,6 +224,125 @@ Singleton {
             },
             "command": ["bash", "-c", 'nmcli connection modify "$SSID" wifi-sec.psk "$PASSWORD"']
         })
+    }
+
+    // --- Wi-Fi hotspot ---------------------------------------------------------
+    // Backed by the root helper /usr/local/bin/ii-hotspot (installed by the
+    // dotfiles; authorized passwordless via a polkit rule for the `wheel` group).
+    // The helper picks the backend that actually works for the current uplink:
+    //   • Wi-Fi is the uplink  -> create_ap: concurrent AP+STA on the ONE radio,
+    //     so Wi-Fi STAYS connected and its internet is shared. A single radio
+    //     can't span two channels, so the AP rides the client's channel and the
+    //     requested band is ignored (hotspotBandLocked is true in this case).
+    //   • Ethernet / Wi-Fi off -> NetworkManager AP: radio is free, band honoured.
+    property bool hotspotActive: false
+    property bool hotspotEnabling: false          // start/stop in flight
+    property int hotspotClients: 0
+    property string hotspotSsid: ""
+    property string hotspotPassword: ""
+    property string hotspotBand: "2.4"            // "2.4" | "5" (GHz)
+    property string hotspotBackend: "none"        // "create_ap" | "nm" | "none"
+    property bool hotspotConfigLoaded: false
+    // On a single radio the band can't be chosen while Wi-Fi is the uplink — it
+    // follows the client channel. The UI uses this to disable the band selector.
+    readonly property bool hotspotBandLocked: root.wifi
+    readonly property string hotspotHelper: "/usr/local/bin/ii-hotspot"
+
+    function startHotspot(ssid: string, password: string, band = "2.4"): void {
+        if (!ssid || ssid.length === 0) return;
+        root.hotspotEnabling = true;
+        root.hotspotSsid = ssid;
+        root.hotspotPassword = password;
+        root.hotspotBand = band;
+        hotspotProc.exec(["pkexec", root.hotspotHelper, "start", ssid, password, band]);
+    }
+
+    function stopHotspot(): void {
+        root.hotspotEnabling = true;
+        stopHotspotProc.exec(["pkexec", root.hotspotHelper, "stop"]);
+    }
+
+    function toggleHotspot(): void {
+        if (hotspotActive) stopHotspot();
+        else startHotspot(hotspotSsid, hotspotPassword, hotspotBand);
+    }
+
+    // Load the saved Hotspot profile (or sensible defaults) to prefill the UI.
+    // The helper mirrors config into an inactive NM "Hotspot" profile on every
+    // start, so this prefills regardless of which backend last ran.
+    function loadHotspotConfig(): void {
+        hotspotConfigProc.exec(["bash", "-c",
+            'if nmcli -t connection show Hotspot >/dev/null 2>&1; then ' +
+            'echo "SSID:$(nmcli -g 802-11-wireless.ssid connection show Hotspot)"; ' +
+            'echo "PSK:$(nmcli -s -g 802-11-wireless-security.psk connection show Hotspot)"; ' +
+            'echo "BAND:$(nmcli -g 802-11-wireless.band connection show Hotspot)"; ' +
+            'else echo "SSID:$(uname -n)"; echo "PSK:"; echo "BAND:bg"; fi'
+        ]);
+    }
+
+    Process {
+        id: hotspotProc
+        environment: ({ LANG: "C", LC_ALL: "C" })
+        stderr: SplitParser { onRead: line => { root.hotspotError = line; } }
+        onExited: (exitCode, exitStatus) => {
+            root.hotspotEnabling = false;
+            root.update();
+        }
+    }
+    property string hotspotError: ""
+
+    Process {
+        id: stopHotspotProc
+        onExited: (exitCode, exitStatus) => {
+            root.hotspotEnabling = false;
+            root.update();
+        }
+    }
+
+    Process {
+        id: hotspotConfigProc
+        property string buffer
+        function exec(cmd) { buffer = ""; command = cmd; running = true; }
+        stdout: SplitParser { onRead: data => { hotspotConfigProc.buffer += data + "\n"; } }
+        onExited: (exitCode, exitStatus) => {
+            hotspotConfigProc.buffer.trim().split("\n").forEach(line => {
+                const idx = line.indexOf(":");
+                if (idx < 0) return;
+                const key = line.slice(0, idx), val = line.slice(idx + 1);
+                if (key === "SSID" && val) root.hotspotSsid = val;
+                else if (key === "PSK") root.hotspotPassword = val;
+                // Map the stored NM band (bg/a) to the UI's 2.4/5 vocabulary.
+                else if (key === "BAND" && val) root.hotspotBand = (val === "a") ? "5" : "2.4";
+            });
+            root.hotspotConfigLoaded = true;
+        }
+    }
+
+    // Read hotspot state via the helper's read-only `status` (no privilege needed).
+    // Runs from update() so a start/stop reflects live. If the helper isn't
+    // installed yet, the command errors and we treat the hotspot as inactive.
+    Process {
+        id: hotspotStatusProc
+        property string buffer
+        command: [root.hotspotHelper, "status"]
+        function startCheck() { buffer = ""; running = true; }
+        stdout: SplitParser { onRead: data => { hotspotStatusProc.buffer += data + "\n"; } }
+        onExited: (exitCode, exitStatus) => {
+            let active = false, clients = 0, ssid = "", backend = "none";
+            hotspotStatusProc.buffer.trim().split("\n").forEach(line => {
+                const idx = line.indexOf(":");
+                if (idx < 0) return;
+                const key = line.slice(0, idx), val = line.slice(idx + 1);
+                if (key === "ACTIVE") active = (val === "yes");
+                else if (key === "BACKEND") backend = val;
+                else if (key === "CLIENTS") clients = parseInt(val) || 0;
+                else if (key === "SSID") ssid = val;
+            });
+            root.hotspotActive = active;
+            root.hotspotClients = clients;
+            root.hotspotBackend = backend;
+            if (active && ssid) root.hotspotSsid = ssid;
+        }
     }
 
     Process {
@@ -234,6 +372,7 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             root.wifiConnectTarget.askingPassword = (exitCode !== 0)
             root.wifiConnectTarget = null
+            getSavedProfiles.running = true
         }
     }
 
@@ -253,6 +392,7 @@ Singleton {
                 root.wifiConnectTarget.askingPassword = (exitCode !== 0);
             root.wifiConnectTarget = null;
             getNetworks.running = true;
+            getSavedProfiles.running = true;
             root.update();
         }
     }
@@ -283,6 +423,7 @@ Singleton {
         updateNetworkName.running = true;
         updateNetworkStrength.running = true;
         updateNetworkDetails.startCheck();
+        hotspotStatusProc.startCheck();
     }
 
     Process {
@@ -429,7 +570,8 @@ Singleton {
                         frequency: parseInt(net[2]),
                         ssid: net[3],
                         bssid: net[4]?.replace(rep2, ":") ?? "",
-                        security: net[5] || ""
+                        security: net[5] || "",
+                        saved: root.savedWifiProfiles.includes(net[3])
                     };
                 }).filter(n => n.ssid && n.ssid.length > 0);
 
@@ -477,6 +619,29 @@ Singleton {
                         }));
                     }
                 }
+            }
+        }
+    }
+
+    // Enumerate saved Wi-Fi connection profiles so scanned APs can be flagged
+    // `saved`. NAME may contain escaped colons; TYPE is the trailing field.
+    Process {
+        id: getSavedProfiles
+        running: true
+        command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
+        environment: ({ LANG: "C", LC_ALL: "C" })
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const names = text.trim().split("\n").map(line => {
+                    const idx = line.lastIndexOf(":");
+                    if (idx < 0) return null;
+                    const type = line.slice(idx + 1);
+                    if (!type.includes("wireless")) return null;
+                    return line.slice(0, idx).replace(/\\:/g, ":").replace(/\\\\/g, "\\");
+                }).filter(Boolean);
+                root.savedWifiProfiles = names;
+                // Re-run the AP scan so existing entries pick up the new `saved` flag.
+                getNetworks.running = true;
             }
         }
     }

@@ -14,10 +14,17 @@ DialogListItem {
     readonly property bool isActive: wifiNetwork?.active ?? false
     readonly property bool isEnterprise: wifiNetwork?.isEnterprise ?? false
     readonly property bool isSecure: wifiNetwork?.isSecure ?? false
+    readonly property bool saved: wifiNetwork?.saved ?? false
     readonly property bool expanded: (wifiNetwork?.expanded || wifiNetwork?.askingPassword) ?? false
     readonly property int strength: wifiNetwork?.strength ?? 0
     property string eapMethod: "peap"   // enterprise EAP method (peap/ttls)
     property bool shareShown: false      // active network: QR + password reveal
+    // Enterprise credential entry: shown for first-time (unsaved) networks, or when
+    // the user explicitly chooses to re-enter credentials on a saved one. A saved
+    // enterprise network otherwise reconnects from its stored EAP secrets (no prompt).
+    property bool reEntering: false
+    readonly property bool entering: root.isEnterprise && !root.isActive && (!root.saved || root.reEntering)
+    onExpandedChanged: if (!expanded) reEntering = false
 
     enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !isActive)
     active: (root.expanded || root.isActive) ?? false
@@ -178,7 +185,7 @@ DialogListItem {
 
                 Rectangle { // Enterprise (802.1X) card
                     Layout.fillWidth: true
-                    visible: root.isEnterprise && !root.isActive
+                    visible: root.entering
                     radius: Appearance.rounding.small
                     color: Appearance.m3colors.m3surfaceContainerHighest
                     implicitHeight: entCol.implicitHeight + 24
@@ -266,18 +273,29 @@ DialogListItem {
                         colRipple: Appearance.colors.colLayer4Active
                         onClicked: if (root.wifiNetwork?.ssid) Network.forgetWifiNetwork(root.wifiNetwork.ssid)
                     }
+                    DialogButton { // saved enterprise: re-enter credentials instead of reusing stored ones
+                        visible: root.isEnterprise && root.saved && !root.isActive && !root.reEntering
+                        Layout.fillWidth: true
+                        buttonText: Translation.tr("Re-enter")
+                        colBackground: Appearance.colors.colLayer4
+                        colBackgroundHover: Appearance.colors.colLayer4Hover
+                        colRipple: Appearance.colors.colLayer4Active
+                        onClicked: root.reEntering = true
+                    }
                     DialogButton { // primary action
                         Layout.fillWidth: true
-                        enabled: !(root.isEnterprise && !root.isActive) || identityField.text.length > 0
+                        // Only require an identity when we're actually entering credentials.
+                        enabled: !root.entering || identityField.text.length > 0
                         buttonText: root.isActive ? Translation.tr("Disconnect")
-                            : root.isEnterprise ? Translation.tr("Sign in")
-                            : root.wifiNetwork?.askingPassword ? Translation.tr("Connect")
+                            : root.entering ? Translation.tr("Sign in")
                             : Translation.tr("Connect")
                         onClicked: {
                             if (root.isActive)
                                 Network.disconnectWifiNetwork();
-                            else if (root.isEnterprise)
+                            else if (root.entering)
                                 Network.connectToWifiEnterprise(root.wifiNetwork, identityField.text, entPasswordField.text, root.eapMethod);
+                            else if (root.isEnterprise && root.saved)
+                                Network.connectSavedNetwork(root.wifiNetwork);
                             else if (root.wifiNetwork?.askingPassword)
                                 Network.changePassword(root.wifiNetwork, passwordField.text);
                             else

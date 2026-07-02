@@ -11,6 +11,10 @@ QtObject {
     readonly property bool isSecure: security.length > 0
     // Enterprise (802.1X / WPA-EAP): needs identity + password, not just a PSK.
     readonly property bool isEnterprise: security.includes("802.1X")
+    // True when a saved NM connection profile already exists for this SSID. For
+    // enterprise networks this means we can just `up` the profile (reusing the
+    // stored EAP secrets) instead of re-prompting for identity/password.
+    readonly property bool saved: lastIpcObject.saved ?? false
 
     // Derived, for the revamped UI.
     readonly property string band: frequency >= 4000 ? "5 GHz" : "2.4 GHz"

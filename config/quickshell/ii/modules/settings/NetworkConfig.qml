@@ -100,10 +100,16 @@ ContentPage {
                 readonly property bool isActive: modelData?.active ?? false
                 readonly property bool isEnterprise: modelData?.isEnterprise ?? false
                 readonly property bool isSecure: modelData?.isSecure ?? false
+                readonly property bool saved: modelData?.saved ?? false
                 readonly property bool isConnecting: Network.wifiConnectTarget === modelData
                 readonly property bool expanded: (modelData?.expanded || modelData?.askingPassword) ?? false
                 property string eapMethod: "peap"
                 property bool shareShown: false
+                // See WifiNetworkItem.qml: only prompt for enterprise credentials when
+                // first-time (unsaved) or the user explicitly re-enters them.
+                property bool reEntering: false
+                readonly property bool entering: isEnterprise && !isActive && (!saved || reEntering)
+                onExpandedChanged: if (!expanded) reEntering = false
                 Layout.fillWidth: true
                 Layout.topMargin: 2
                 spacing: 0
@@ -224,7 +230,7 @@ ContentPage {
 
                         Rectangle { // enterprise (802.1X) card
                             Layout.fillWidth: true
-                            visible: row.isEnterprise && !row.isActive
+                            visible: row.entering
                             radius: Appearance.rounding.small
                             color: Appearance.m3colors.m3surfaceContainerHighest
                             implicitHeight: entCol.implicitHeight + 24
@@ -294,12 +300,20 @@ ContentPage {
                                 onClicked: if (row.modelData?.ssid) Network.forgetWifiNetwork(row.modelData.ssid)
                             }
                             DialogButton {
+                                visible: row.isEnterprise && row.saved && !row.isActive && !row.reEntering
                                 Layout.fillWidth: true
-                                enabled: !(row.isEnterprise && !row.isActive) || entId.text.length > 0
-                                buttonText: row.isActive ? Translation.tr("Disconnect") : row.isEnterprise ? Translation.tr("Sign in") : Translation.tr("Connect")
+                                buttonText: Translation.tr("Re-enter")
+                                colBackground: Appearance.colors.colLayer4; colBackgroundHover: Appearance.colors.colLayer4Hover; colRipple: Appearance.colors.colLayer4Active
+                                onClicked: row.reEntering = true
+                            }
+                            DialogButton {
+                                Layout.fillWidth: true
+                                enabled: !row.entering || entId.text.length > 0
+                                buttonText: row.isActive ? Translation.tr("Disconnect") : row.entering ? Translation.tr("Sign in") : Translation.tr("Connect")
                                 onClicked: {
                                     if (row.isActive) Network.disconnectWifiNetwork();
-                                    else if (row.isEnterprise) Network.connectToWifiEnterprise(row.modelData, entId.text, entPw.text, row.eapMethod);
+                                    else if (row.entering) Network.connectToWifiEnterprise(row.modelData, entId.text, entPw.text, row.eapMethod);
+                                    else if (row.isEnterprise && row.saved) Network.connectSavedNetwork(row.modelData);
                                     else if (row.modelData?.askingPassword) Network.changePassword(row.modelData, pskPw.text);
                                     else Network.connectToWifiNetwork(row.modelData);
                                 }
@@ -343,6 +357,113 @@ ContentPage {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    ContentSection {
+        id: hotspotCard
+        icon: "wifi_tethering"
+        title: Translation.tr("Hotspot")
+        property string band: Network.hotspotBand
+
+        Component.onCompleted: Network.loadHotspotConfig()
+        Connections {
+            target: Network
+            function onHotspotBandChanged() { hotspotCard.band = Network.hotspotBand; }
+        }
+
+        RowLayout { // power + status
+            Layout.fillWidth: true
+            spacing: 10
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                StyledText {
+                    color: Appearance.colors.colOnSurface
+                    text: Network.hotspotActive ? Translation.tr("On") : Translation.tr("Off")
+                }
+                StyledText {
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    text: Network.hotspotEnabling ? Translation.tr("Applying…")
+                        : Network.hotspotActive ? Translation.tr("Sharing as %1 · %2 device(s)").arg(Network.hotspotSsid).arg(Network.hotspotClients)
+                        : Translation.tr("Share this connection over Wi-Fi")
+                }
+            }
+            StyledSwitch {
+                enabled: !Network.hotspotEnabling && hsSsidField.text.length > 0
+                    && (hsPassField.text.length === 0 || hsPassField.text.length >= 8)
+                checked: Network.hotspotActive
+                onToggled: {
+                    if (checked) Network.startHotspot(hsSsidField.text, hsPassField.text, hotspotCard.band);
+                    else Network.stopHotspot();
+                }
+            }
+        }
+
+        MaterialTextField {
+            id: hsSsidField
+            Layout.fillWidth: true
+            enabled: !Network.hotspotActive
+            placeholderText: Translation.tr("Hotspot name (SSID)")
+            text: Network.hotspotSsid
+        }
+        MaterialTextField {
+            id: hsPassField
+            Layout.fillWidth: true
+            enabled: !Network.hotspotActive
+            placeholderText: Translation.tr("Password (8+ chars, empty = open network)")
+            echoMode: TextInput.Password
+            inputMethodHints: Qt.ImhSensitiveData
+            text: Network.hotspotPassword
+        }
+        RowLayout { // 2.4 GHz / 5 GHz band selector
+            Layout.fillWidth: true
+            spacing: 6
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Band")
+            }
+            Repeater {
+                model: [{ label: Translation.tr("2.4 GHz"), val: "bg" }, { label: Translation.tr("5 GHz"), val: "a" }]
+                delegate: DialogButton {
+                    required property var modelData
+                    enabled: !Network.hotspotActive
+                    buttonText: modelData.label
+                    colBackground: hotspotCard.band === modelData.val ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
+                    colText: hotspotCard.band === modelData.val ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnSurfaceVariant
+                    onClicked: hotspotCard.band = modelData.val
+                }
+            }
+        }
+        StyledText {
+            visible: hsPassField.text.length > 0 && hsPassField.text.length < 8
+            Layout.fillWidth: true
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colError ?? Appearance.colors.colSubtext
+            text: Translation.tr("Password needs at least 8 characters (WPA2).")
+        }
+        StyledText {
+            Layout.fillWidth: true
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            wrapMode: Text.WordWrap
+            text: Translation.tr("A single Wi-Fi radio can't be a client and hotspot at once — starting the hotspot disconnects Wi-Fi. To share internet, connect an uplink (Ethernet or USB tether).")
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Item { Layout.fillWidth: true }
+            DialogButton {
+                enabled: !Network.hotspotEnabling && hsSsidField.text.length > 0
+                    && (hsPassField.text.length === 0 || hsPassField.text.length >= 8)
+                buttonText: Network.hotspotActive ? Translation.tr("Stop hotspot") : Translation.tr("Start hotspot")
+                onClicked: {
+                    if (Network.hotspotActive) Network.stopHotspot();
+                    else Network.startHotspot(hsSsidField.text, hsPassField.text, hotspotCard.band);
                 }
             }
         }
