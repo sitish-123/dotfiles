@@ -14,7 +14,12 @@ end
 -- Default configurations --
 require("hyprland.execs")
 require("hyprland.rules")
-require("hyprland.colors")
+-- colors.lua is matugen-generated from the wallpaper (gitignored, not portable).
+-- On a fresh install it doesn't exist yet; guard the require so a missing theme
+-- can't trip emergency mode and drop all keybinds. It loads once matugen runs.
+if is_file_exists(HOME .. "/.config/hypr/hyprland/colors.lua") then
+    require("hyprland.colors")
+end
 
 -- Custom configurations --
 if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
