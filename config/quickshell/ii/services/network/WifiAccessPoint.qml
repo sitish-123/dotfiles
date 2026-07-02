@@ -4,6 +4,11 @@ QtObject {
     required property var lastIpcObject
     readonly property string ssid: lastIpcObject.ssid
     readonly property string bssid: lastIpcObject.bssid
+    // Stable unique identity key for ScriptModel.objectProp. Reordering the list by
+    // signal bucket makes ScriptModel diff & emit row-moves; keying on a reliable
+    // string (not QVariant-wrapped QObject identity) avoids the corrupt-move SIGSEGV
+    // in QQmlDelegateModel::_q_itemsMoved. Dedup keeps (ssid,bssid,frequency) unique.
+    readonly property string apId: ssid + "" + bssid + "" + frequency
     readonly property int strength: lastIpcObject.strength
     readonly property int frequency: lastIpcObject.frequency
     readonly property bool active: lastIpcObject.active

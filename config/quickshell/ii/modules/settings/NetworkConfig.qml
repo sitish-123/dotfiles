@@ -93,7 +93,7 @@ ContentPage {
         }
 
         Repeater {
-            model: ScriptModel { values: Network.friendlyWifiNetworks }
+            model: ScriptModel { objectProp: "apId"; values: Network.friendlyWifiNetworks }
             delegate: ColumnLayout {
                 id: row
                 required property var modelData

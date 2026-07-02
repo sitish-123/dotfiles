@@ -75,6 +75,7 @@ Item {
                     spacing: 4
 
                     model: ScriptModel {
+                        objectProp: "apId"
                         values: Network.friendlyWifiNetworks
                     }
                     delegate: WWifiNetworkItem {

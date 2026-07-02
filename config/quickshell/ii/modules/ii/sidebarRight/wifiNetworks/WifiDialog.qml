@@ -172,6 +172,7 @@ WindowDialog {
         boundsBehavior: Flickable.StopAtBounds
 
         model: ScriptModel {
+            objectProp: "apId"
             values: Network.friendlyWifiNetworks
         }
         delegate: WifiNetworkItem {
