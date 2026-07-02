@@ -96,6 +96,24 @@ systemctl --user enable --now bluetooth-agent.service 2>/dev/null || \
     warn "couldn't enable bluetooth-agent (run inside your graphical session)"
 ok "Bluetooth pairing agent installed & enabled"
 
+# 4b-3) Wi-Fi hotspot helper -------------------------------------------------
+# The ii shell's Hotspot toggle (sidebar + settings) shells out to this root
+# helper, authorized passwordless for `wheel` by a polkit rule. The helper picks
+# create_ap (concurrent AP+STA, keeps Wi-Fi up) when Wi-Fi is the uplink, else a
+# plain NetworkManager AP. Concurrent sharing needs the AUR pkg linux-wifi-hotspot
+# (optional-packages.txt group "hotspot"); the NM path works without it.
+info "Wi-Fi hotspot: installing ii-hotspot helper + polkit rule"
+sudo install -Dm755 "$SYS/bin/ii-hotspot" /usr/local/bin/ii-hotspot
+sudo install -Dm644 "$SYS/etc/polkit-1/rules.d/49-ii-hotspot.rules" \
+    /etc/polkit-1/rules.d/49-ii-hotspot.rules
+sudo systemctl try-reload-or-restart polkit.service 2>/dev/null || true
+if have create_ap; then
+    ok "hotspot helper installed (create_ap present — concurrent Wi-Fi sharing available)"
+else
+    warn "hotspot helper installed, but 'create_ap' missing — install aur:linux-wifi-hotspot"
+    warn "  (optional-packages.txt group 'hotspot') to share Wi-Fi while staying connected."
+fi
+
 # 4c) Face unlock (howdy) ----------------------------------------------------
 # pam_howdy is "sufficient", so a failed face-match just falls through to the
 # password — it can't lock you out, which makes auto-wiring hyprlock safe.

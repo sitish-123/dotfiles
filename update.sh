@@ -58,6 +58,22 @@ if [ -d "$CUSTOM_SRC" ]; then
     done
 fi
 
+# Sync the Wi-Fi hotspot helper + polkit rule if they changed upstream. Only touches
+# /usr/local + /etc (and prompts sudo) when the installed copy actually differs, so a
+# routine update stays sudo-free.
+sync_root_file() { # <repo-src> <dst> <mode>
+    [ -f "$1" ] || return 0
+    if ! sudo cmp -s "$1" "$2" 2>/dev/null; then
+        info "Updating $2"
+        sudo install -Dm"$3" "$1" "$2" && _hs_changed=1
+    fi
+}
+_hs_changed=0
+sync_root_file "$DOT_ROOT/system/bin/ii-hotspot" /usr/local/bin/ii-hotspot 755
+sync_root_file "$DOT_ROOT/system/etc/polkit-1/rules.d/49-ii-hotspot.rules" \
+    /etc/polkit-1/rules.d/49-ii-hotspot.rules 644
+[ "$_hs_changed" -eq 1 ] && { sudo systemctl try-reload-or-restart polkit.service 2>/dev/null || true; ok "hotspot helper synced"; }
+
 # Record the Hyprland version we just built against, so the next run detects the next bump.
 [ -n "$CUR_HVER" ] && { mkdir -p "$(dirname "$STATE")"; printf '%s\n' "$CUR_HVER" > "$STATE"; }
 

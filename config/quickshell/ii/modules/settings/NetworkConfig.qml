@@ -419,20 +419,20 @@ ContentPage {
             inputMethodHints: Qt.ImhSensitiveData
             text: Network.hotspotPassword
         }
-        RowLayout { // 2.4 GHz / 5 GHz band selector
+        RowLayout { // 2.4 GHz / 5 GHz band selector (locked to client channel on Wi-Fi)
             Layout.fillWidth: true
             spacing: 6
             StyledText {
                 Layout.fillWidth: true
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Band")
+                text: Network.hotspotBandLocked ? Translation.tr("Band (follows your Wi-Fi channel)") : Translation.tr("Band")
             }
             Repeater {
-                model: [{ label: Translation.tr("2.4 GHz"), val: "bg" }, { label: Translation.tr("5 GHz"), val: "a" }]
+                model: [{ label: Translation.tr("2.4 GHz"), val: "2.4" }, { label: Translation.tr("5 GHz"), val: "5" }]
                 delegate: DialogButton {
                     required property var modelData
-                    enabled: !Network.hotspotActive
+                    enabled: !Network.hotspotActive && !Network.hotspotBandLocked
                     buttonText: modelData.label
                     colBackground: hotspotCard.band === modelData.val ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
                     colText: hotspotCard.band === modelData.val ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnSurfaceVariant
@@ -448,11 +448,21 @@ ContentPage {
             text: Translation.tr("Password needs at least 8 characters (WPA2).")
         }
         StyledText {
+            visible: Network.hotspotError.length > 0 && !Network.hotspotActive && !Network.hotspotEnabling
+            Layout.fillWidth: true
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colError ?? Appearance.colors.colSubtext
+            wrapMode: Text.WordWrap
+            text: Network.hotspotError
+        }
+        StyledText {
             Layout.fillWidth: true
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: Appearance.colors.colSubtext
             wrapMode: Text.WordWrap
-            text: Translation.tr("A single Wi-Fi radio can't be a client and hotspot at once — starting the hotspot disconnects Wi-Fi. To share internet, connect an uplink (Ethernet or USB tether).")
+            text: Network.hotspotBandLocked
+                ? Translation.tr("You're on Wi-Fi, so the hotspot shares that connection over the same radio — Wi-Fi stays connected and the band follows its channel. (Needs linux-wifi-hotspot.)")
+                : Translation.tr("The radio is free, so you can pick the band. The hotspot shares your Ethernet/USB uplink over Wi-Fi (or runs as a local AP if there's no uplink).")
         }
         RowLayout {
             Layout.fillWidth: true

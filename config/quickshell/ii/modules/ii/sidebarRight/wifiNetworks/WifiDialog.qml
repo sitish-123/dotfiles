@@ -264,6 +264,108 @@ WindowDialog {
         }
     }
 
+    ColumnLayout { // Wi-Fi hotspot (share this machine's connection over AP mode)
+        id: hotspotSection
+        property bool open: false
+        property string band: Network.hotspotBand
+        Layout.fillWidth: true
+        Layout.topMargin: 2
+        spacing: 6
+
+        Component.onCompleted: Network.loadHotspotConfig()
+        // Keep the band selector in sync with the loaded/saved profile.
+        Connections {
+            target: Network
+            function onHotspotBandChanged() { hotspotSection.band = Network.hotspotBand; }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            DialogButton {
+                Layout.fillWidth: true
+                buttonText: hotspotSection.open ? Translation.tr("Hide hotspot settings")
+                    : Network.hotspotActive ? Translation.tr("Hotspot on · %1 device(s)").arg(Network.hotspotClients)
+                    : Translation.tr("Wi-Fi hotspot")
+                colBackground: Appearance.colors.colLayer4
+                colBackgroundHover: Appearance.colors.colLayer4Hover
+                colRipple: Appearance.colors.colLayer4Active
+                onClicked: hotspotSection.open = !hotspotSection.open
+            }
+            StyledSwitch {
+                enabled: !Network.hotspotEnabling && (hsSsid.text.length > 0)
+                checked: Network.hotspotActive
+                onToggled: {
+                    if (checked) Network.startHotspot(hsSsid.text, hsPass.text, hotspotSection.band);
+                    else Network.stopHotspot();
+                }
+            }
+        }
+        MaterialTextField {
+            id: hsSsid
+            visible: hotspotSection.open
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Hotspot name (SSID)")
+            text: Network.hotspotSsid
+        }
+        MaterialTextField {
+            id: hsPass
+            visible: hotspotSection.open
+            Layout.fillWidth: true
+            placeholderText: Translation.tr("Password (8+ chars, empty = open)")
+            echoMode: TextInput.Password
+            inputMethodHints: Qt.ImhSensitiveData
+            text: Network.hotspotPassword
+        }
+        RowLayout { // 2.4 GHz / 5 GHz band selector (locked to client channel on Wi-Fi)
+            visible: hotspotSection.open
+            Layout.fillWidth: true
+            spacing: 6
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: Network.hotspotBandLocked ? Translation.tr("Band (follows Wi-Fi)") : Translation.tr("Band")
+            }
+            Repeater {
+                model: [{ label: Translation.tr("2.4 GHz"), val: "2.4" }, { label: Translation.tr("5 GHz"), val: "5" }]
+                delegate: DialogButton {
+                    required property var modelData
+                    enabled: !Network.hotspotBandLocked && !Network.hotspotActive
+                    buttonText: modelData.label
+                    colBackground: hotspotSection.band === modelData.val ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
+                    colText: hotspotSection.band === modelData.val ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnSurfaceVariant
+                    onClicked: hotspotSection.band = modelData.val
+                }
+            }
+        }
+        RowLayout { // status + start/stop
+            visible: hotspotSection.open
+            Layout.fillWidth: true
+            spacing: 8
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                elide: Text.ElideRight
+                text: Network.hotspotEnabling ? Translation.tr("Applying…")
+                    : Network.hotspotActive ? Translation.tr("On · %1 device(s)").arg(Network.hotspotClients)
+                    : (hsPass.text.length > 0 && hsPass.text.length < 8) ? Translation.tr("Password needs 8+ characters")
+                    : Network.hotspotBandLocked ? Translation.tr("Shares your Wi-Fi (stays connected)")
+                    : Translation.tr("Off")
+            }
+            DialogButton {
+                enabled: !Network.hotspotEnabling && hsSsid.text.length > 0
+                    && (hsPass.text.length === 0 || hsPass.text.length >= 8)
+                buttonText: Network.hotspotActive ? Translation.tr("Stop") : Translation.tr("Start")
+                onClicked: {
+                    if (Network.hotspotActive) Network.stopHotspot();
+                    else Network.startHotspot(hsSsid.text, hsPass.text, hotspotSection.band);
+                }
+            }
+        }
+    }
+
     WindowDialogSeparator {}
     WindowDialogButtonRow {
         Item { Layout.fillWidth: true }

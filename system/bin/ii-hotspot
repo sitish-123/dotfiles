@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# ii-hotspot — start/stop a Wi-Fi hotspot for the ii shell, picking the backend
+# that actually works for the current uplink:
+#
+#   • Wi-Fi is the uplink (single radio)  -> create_ap  (concurrent AP+STA).
+#     One radio can't be on two channels, so the AP rides the SAME channel as the
+#     Wi-Fi client and the requested band is ignored — but Wi-Fi STAYS CONNECTED
+#     and its internet is NAT-shared to clients (the whole point).
+#   • Ethernet uplink, or Wi-Fi off       -> NetworkManager hotspot (mode=ap,
+#     ipv4.method=shared). The radio is free, so the band (2.4/5 GHz) is honoured.
+#
+# Runs as root via pkexec (see /etc/polkit-1/rules.d/49-ii-hotspot.rules for the
+# passwordless authorization). `status` is read-only and safe to call unprivileged.
+#
+# Usage: ii-hotspot start <ssid> [passphrase] [2.4|5]
+#        ii-hotspot stop
+#        ii-hotspot status          # prints ACTIVE/BACKEND/SSID/CLIENTS lines
+#
+# Config is mirrored into an (inactive) NetworkManager "Hotspot" profile on every
+# start so the UI can prefill SSID/band next time regardless of which backend ran.
+set -euo pipefail
+
+WIFI="$(nmcli -t -f DEVICE,TYPE d 2>/dev/null | awk -F: '$2=="wifi"{print $1; exit}')"
+
+log() { echo "ii-hotspot: $*" >&2; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+wifi_connected() {
+    [ -n "$WIFI" ] || return 1
+    nmcli -t -f DEVICE,TYPE,STATE d 2>/dev/null \
+        | awk -F: -v w="$WIFI" '$1==w && $3=="connected"{ok=1} END{exit !ok}'
+}
+
+# Number of associated stations on an AP-mode interface (0 if none/unknown).
+ap_clients() { iw dev "${1:-}" station dump 2>/dev/null | grep -c '^Station' || true; }
+
+# Name of the interface currently in AP mode (create_ap's virtual iface / NM's AP),
+# if any. This is the ground truth for "a hotspot is up" — a managed (client) iface
+# never matches, so it can't be mistaken for an active AP.
+ap_iface() { iw dev 2>/dev/null | awk '/^[[:space:]]*Interface /{i=$2} /type AP$/{print i; exit}'; }
+
+# Channel the Wi-Fi client is currently associated on (empty if not connected). One
+# radio can't span two channels, so the concurrent AP must be pinned to this.
+sta_channel() { iw dev "$WIFI" info 2>/dev/null | awk '/channel/{print $2; exit}'; }
+sta_freq()    { iw dev "$WIFI" link 2>/dev/null | awk '/freq/{print $2; exit}'; }
+
+# Is beaconing (AP mode) forbidden on this frequency? 5 GHz channels are commonly
+# flagged "no IR" (no initiating radiation) by the regulatory domain — a client may
+# associate there but an AP can't beacon. On one radio the concurrent AP is forced
+# onto the client's channel, so a "no IR" client channel makes sharing impossible.
+freq_no_ir() {
+    local mhz="${1%%.*}"
+    [ -n "$mhz" ] || return 1
+    iw phy 2>/dev/null | grep -E "\* ${mhz}(\.[0-9]+)? MHz" | grep -qi "no IR"
+}
+
+stop_all() {
+    systemctl stop ii-hotspot.service 2>/dev/null || true
+    systemctl reset-failed ii-hotspot.service 2>/dev/null || true
+    have create_ap && { create_ap --stop "$WIFI" 2>/dev/null || true; }
+    pkill -f "create_ap.*(^| )$WIFI( |\$)" 2>/dev/null || true
+    nmcli connection down Hotspot 2>/dev/null || true
+}
+
+case "${1:-status}" in
+  start)
+    SSID="${2:-}"; PASS="${3:-}"; BAND="${4:-}"     # BAND: 2.4 | 5 | "" (auto)
+    [ -n "$WIFI" ] || { log "no Wi-Fi device found"; exit 1; }
+    [ -n "$SSID" ] || { log "SSID required"; exit 2; }
+    if [ -n "$PASS" ] && [ "${#PASS}" -lt 8 ]; then
+        log "WPA2 passphrase must be at least 8 characters"; exit 2
+    fi
+
+    stop_all
+
+    # Mirror the config into an inactive NM profile purely for UI prefill/persistence.
+    case "$BAND" in 2.4) NMBAND=bg ;; 5) NMBAND=a ;; *) NMBAND="" ;; esac
+    nmcli connection delete id Hotspot >/dev/null 2>&1 || true
+    nmcli connection add type wifi ifname "$WIFI" con-name Hotspot autoconnect no ssid "$SSID" >/dev/null
+    nmcli connection modify Hotspot 802-11-wireless.mode ap ipv4.method shared ipv6.method ignore
+    [ -n "$NMBAND" ] && nmcli connection modify Hotspot 802-11-wireless.band "$NMBAND"
+    if [ -n "$PASS" ]; then
+        nmcli connection modify Hotspot wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$PASS"
+    else
+        nmcli connection modify Hotspot wifi-sec.key-mgmt none
+    fi
+
+    if wifi_connected; then
+        # Concurrent AP+STA: only create_ap can do this on one card. Keep the NM
+        # Hotspot profile DOWN (it would hijack the radio) and run create_ap, which
+        # spins up a virtual AP iface on the client's channel and NATs the uplink.
+        have create_ap || {
+            log "Wi-Fi is the uplink; sharing it needs 'linux-wifi-hotspot' (create_ap). Install it (aur:linux-wifi-hotspot)."
+            exit 3
+        }
+        # One radio forces the AP onto the client's channel. If that channel forbids
+        # beaconing (regulatory "no IR", typical on 5 GHz), an AP simply can't run
+        # there — fail early with an actionable message instead of a cryptic create_ap
+        # error deep in setup.
+        if freq_no_ir "$(sta_freq)"; then
+            log "Can't share this Wi-Fi: it's on a channel where access-point mode is barred by regulations (no-IR, common on 5 GHz). Connect to a 2.4 GHz network to share it, or plug in Ethernet."
+            exit 4
+        fi
+        # Pin the AP to the client's channel. Without -c, create_ap sees the card's
+        # multi-channel combos and may pick a channel in the wrong band (e.g. "ch1,
+        # 5GHz") and abort. -c <sta-channel> forces the mandatory co-channel.
+        CHAN="$(sta_channel)"
+        log "Wi-Fi uplink -> create_ap concurrent share on $WIFI (channel ${CHAN:-auto})"
+        systemctl reset-failed ii-hotspot.service 2>/dev/null || true
+        set -- systemd-run --unit=ii-hotspot --collect --property=Restart=no create_ap
+        [ -n "$CHAN" ] && set -- "$@" -c "$CHAN"
+        set -- "$@" "$WIFI" "$WIFI" "$SSID"
+        [ -n "$PASS" ] && set -- "$@" "$PASS"
+        exec "$@"
+    else
+        # Radio is free: NetworkManager AP honours the requested band and NATs from
+        # the default-route interface (ethernet) if there is one.
+        log "free radio -> NetworkManager hotspot (band=${BAND:-auto})"
+        nmcli radio wifi on 2>/dev/null || true
+        exec nmcli connection up Hotspot
+    fi
+    ;;
+
+  stop)
+    stop_all
+    ;;
+
+  status)
+    # Ground truth: an interface actually in AP mode. A managed (client) iface never
+    # matches, so a live Wi-Fi connection can't be misreported as an active hotspot.
+    AP="$(ap_iface || true)"
+    if [ -n "$AP" ]; then
+        echo "ACTIVE:yes"
+        if pgrep -af create_ap 2>/dev/null | grep -q -- "$WIFI" \
+           || systemctl is-active --quiet ii-hotspot.service 2>/dev/null; then
+            echo "BACKEND:create_ap"
+        else
+            echo "BACKEND:nm"
+        fi
+        SS="$(iw dev "$AP" info 2>/dev/null | sed -n 's/^[[:space:]]*ssid //p' | head -1)"
+        [ -n "$SS" ] && echo "SSID:$SS"
+        echo "CLIENTS:$(ap_clients "$AP")"
+    else
+        echo "ACTIVE:no"; echo "BACKEND:none"
+    fi
+    ;;
+
+  *)
+    echo "usage: ii-hotspot {start <ssid> [passphrase] [2.4|5]|stop|status}" >&2
+    exit 2
+    ;;
+esac
