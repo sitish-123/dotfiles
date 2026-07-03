@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -9,7 +8,11 @@ RippleButton {
     id: root
 
     property bool showPing: false
-    visible: true // AI panel launcher (left sidebar was replaced)
+
+    property bool aiChatEnabled: Config.options.policies.ai !== 0
+    property bool translatorEnabled: Config.options.sidebar.translator.enable
+    property bool animeEnabled: Config.options.policies.weeb !== 0
+    visible: aiChatEnabled || translatorEnabled || animeEnabled
 
     property real buttonPadding: 5
     implicitWidth: distroIcon.width + buttonPadding * 2
@@ -20,10 +23,33 @@ RippleButton {
     colBackgroundToggled: Appearance.colors.colSecondaryContainer
     colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
     colRippleToggled: Appearance.colors.colSecondaryContainerActive
+    toggled: GlobalStates.sidebarLeftOpen
 
-    // Toggles the native AI sidebar (layer-shell Gemini/ChatGPT/Claude) — same as SUPER+A.
     onPressed: {
-        Quickshell.execDetached(["bash", "-lc", "~/.local/bin/ai-sidebar"]);
+        GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen;
+    }
+
+    Connections {
+        target: Ai
+        function onResponseFinished() {
+            if (GlobalStates.sidebarLeftOpen) return;
+            root.showPing = true;
+        }
+    }
+
+    Connections {
+        target: Booru
+        function onResponseFinished() {
+            if (GlobalStates.sidebarLeftOpen) return;
+            root.showPing = true;
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            root.showPing = false;
+        }
     }
 
     CustomIcon {

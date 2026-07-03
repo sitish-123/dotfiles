@@ -13,7 +13,7 @@ return {
         { mods = "SUPER", key = "Tab", action = "global", arg = "quickshell:searchToggle", desc = "Shell: Toggle launcher", section = "Shell" },
         { mods = "SUPER", key = "V", action = "global", arg = "quickshell:overviewClipboardToggle", desc = "", section = "Custom" },
         { mods = "SUPER", key = "Period", action = "global", arg = "quickshell:overviewEmojiToggle", desc = "", section = "Custom" },
-        { mods = "SUPER", key = "A", action = "exec", arg = "~/.local/bin/ai-sidebar", desc = "AI sidebar: toggle (Gemini/ChatGPT/Claude)", section = "Shell" },
+        { mods = "SUPER", key = "A", action = "global", arg = "quickshell:sidebarLeftToggle", desc = "Shell: Toggle left sidebar", section = "Shell" },
         { mods = "SUPER", key = "N", action = "global", arg = "quickshell:sidebarRightToggle", desc = "Shell: Toggle right sidebar", section = "Shell" },
         { mods = "SUPER", key = "Slash", action = "global", arg = "quickshell:cheatsheetToggle", desc = "Shell: Toggle cheatsheet", section = "Shell" },
         { mods = "SUPER", key = "K", action = "global", arg = "quickshell:oskToggle", desc = "Shell: Toggle on-screen keyboard", section = "Shell" },
