@@ -247,80 +247,98 @@ ContentPage {
                     radius: Appearance.rounding.small
                     color: rowWrap.conflict ? ColorUtils.transparentize(Appearance.m3colors.m3error, 0.85) : "transparent"
 
-                    RowLayout {
+                    ColumnLayout {
                         id: rowLayout
-                        anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         anchors.leftMargin: 8
-                        anchors.rightMargin: 4
-                        spacing: 5
+                        anchors.rightMargin: 6
+                        spacing: 3
 
-                        MaterialSymbol {
-                            visible: rowWrap.conflict
-                            text: "warning"; iconSize: 18; color: Appearance.m3colors.m3error
-                            StyledToolTip { text: Translation.tr("This key combo is bound more than once") }
-                        }
-                        MaterialTextField {
-                            Layout.preferredWidth: 118
-                            text: rowWrap.mods
-                            placeholderText: "SUPER + ALT"
-                            wrapMode: Text.NoWrap
-                            onEditingFinished: { binds.setProperty(rowWrap.index, "mods", text); root.scheduleSave(); }
-                        }
-                        StyledText { text: "+"; color: Appearance.colors.colSubtext }
-                        MaterialTextField {
-                            Layout.preferredWidth: 78
-                            text: rowWrap.key
-                            placeholderText: "Q"
-                            wrapMode: Text.NoWrap
-                            onEditingFinished: { binds.setProperty(rowWrap.index, "key", text); root.scheduleSave(); }
-                        }
-                        StyledComboBox {
-                            Layout.preferredWidth: 150
-                            model: root.actionOptions
-                            textRole: "displayName"
-                            currentIndex: Math.max(0, root.actionOptions.findIndex(o => o.value === rowWrap.action))
-                            onActivated: (i) => { binds.setProperty(rowWrap.index, "action", root.actionOptions[i].value); root.scheduleSave(); }
-                        }
-                        MaterialTextField {
+                        // line 1 — key combo + action + controls
+                        RowLayout {
                             Layout.fillWidth: true
-                            visible: rowWrap.meta.arg === true
-                            text: rowWrap.arg
-                            placeholderText: rowWrap.meta.hint || Translation.tr("argument")
-                            wrapMode: Text.NoWrap
-                            onEditingFinished: { binds.setProperty(rowWrap.index, "arg", text); root.scheduleSave(); }
+                            spacing: 5
+                            MaterialSymbol {
+                                visible: rowWrap.conflict
+                                text: "warning"; iconSize: 18; color: Appearance.m3colors.m3error
+                            }
+                            MaterialTextField {
+                                Layout.preferredWidth: 145
+                                text: rowWrap.mods
+                                placeholderText: Translation.tr("mods")
+                                wrapMode: Text.NoWrap
+                                onEditingFinished: { binds.setProperty(rowWrap.index, "mods", text); root.scheduleSave(); }
+                            }
+                            StyledText { text: "+"; color: Appearance.colors.colSubtext }
+                            MaterialTextField {
+                                Layout.preferredWidth: 100
+                                text: rowWrap.key
+                                placeholderText: Translation.tr("key")
+                                wrapMode: Text.NoWrap
+                                onEditingFinished: { binds.setProperty(rowWrap.index, "key", text); root.scheduleSave(); }
+                            }
+                            StyledComboBox {
+                                Layout.preferredWidth: 185
+                                model: root.actionOptions
+                                textRole: "displayName"
+                                currentIndex: Math.max(0, root.actionOptions.findIndex(o => o.value === rowWrap.action))
+                                onActivated: (i) => { binds.setProperty(rowWrap.index, "action", root.actionOptions[i].value); root.scheduleSave(); }
+                            }
+                            Item { Layout.fillWidth: true }
+                            StyledText {
+                                visible: rowWrap.conflict
+                                text: Translation.tr("conflict")
+                                color: Appearance.m3colors.m3error
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                            }
+                            RippleButton {
+                                implicitWidth: 34; implicitHeight: 34
+                                buttonRadius: Appearance.rounding.full
+                                onClicked: flagsPopup.openFor(rowWrap.index)
+                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "tune"; iconSize: 18
+                                    color: (rowWrap.locked || rowWrap.repeating) ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1 }
+                                StyledToolTip { text: Translation.tr("Flags (locked, repeating, …)") }
+                            }
+                            RippleButton {
+                                implicitWidth: 34; implicitHeight: 34
+                                buttonRadius: Appearance.rounding.full
+                                onClicked: { binds.remove(rowWrap.index); root.scheduleSave(); }
+                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "delete"; iconSize: 18 }
+                                StyledToolTip { text: Translation.tr("Remove") }
+                            }
                         }
-                        // app picker (only for Run command)
-                        RippleButton {
-                            visible: rowWrap.meta.app === true
-                            implicitWidth: 34; implicitHeight: 34
-                            buttonRadius: Appearance.rounding.full
-                            onClicked: { appPicker.targetIndex = rowWrap.index; appPicker.open(); }
-                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "apps"; iconSize: 20 }
-                            StyledToolTip { text: Translation.tr("Pick an app") }
-                        }
-                        MaterialTextField {
-                            Layout.preferredWidth: 150
-                            text: rowWrap.desc
-                            placeholderText: Translation.tr("description")
-                            wrapMode: Text.NoWrap
-                            onEditingFinished: { binds.setProperty(rowWrap.index, "desc", text); root.scheduleSave(); }
-                        }
-                        RippleButton {
-                            implicitWidth: 34; implicitHeight: 34
-                            buttonRadius: Appearance.rounding.full
-                            onClicked: flagsPopup.openFor(rowWrap.index)
-                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "tune"; iconSize: 18
-                                color: (rowWrap.locked || rowWrap.repeating) ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1 }
-                            StyledToolTip { text: Translation.tr("Flags (locked, repeating, …)") }
-                        }
-                        RippleButton {
-                            implicitWidth: 34; implicitHeight: 34
-                            buttonRadius: Appearance.rounding.full
-                            onClicked: { binds.remove(rowWrap.index); root.scheduleSave(); }
-                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "delete"; iconSize: 18 }
-                            StyledToolTip { text: Translation.tr("Remove") }
+                        // line 2 — argument (+ app picker) and description
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 26
+                            spacing: 5
+                            RippleButton {
+                                visible: rowWrap.meta.app === true
+                                implicitWidth: 34; implicitHeight: 34
+                                buttonRadius: Appearance.rounding.full
+                                onClicked: { appPicker.targetIndex = rowWrap.index; appPicker.open(); }
+                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "apps"; iconSize: 20 }
+                                StyledToolTip { text: Translation.tr("Pick an app") }
+                            }
+                            MaterialTextField {
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 2
+                                visible: rowWrap.meta.arg === true
+                                text: rowWrap.arg
+                                placeholderText: rowWrap.meta.hint || Translation.tr("argument")
+                                wrapMode: Text.NoWrap
+                                onEditingFinished: { binds.setProperty(rowWrap.index, "arg", text); root.scheduleSave(); }
+                            }
+                            MaterialTextField {
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                text: rowWrap.desc
+                                placeholderText: Translation.tr("description")
+                                wrapMode: Text.NoWrap
+                                onEditingFinished: { binds.setProperty(rowWrap.index, "desc", text); root.scheduleSave(); }
+                            }
                         }
                     }
                 }
