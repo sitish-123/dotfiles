@@ -200,7 +200,7 @@ ContentPage {
                 required property string section
                 required property bool locked
                 required property bool repeating
-                width: parent ? parent.width : 0
+                Layout.fillWidth: true
                 spacing: 0
 
                 readonly property bool sectionStart: index === 0 || binds.get(index - 1).section !== section
