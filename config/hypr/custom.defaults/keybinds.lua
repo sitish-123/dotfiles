@@ -380,12 +380,3 @@ hl.bind(
     hl.dsp.exec_cmd("~/.local/bin/toggle-touchscreen"),
     { description = "Toggle Touchscreen" }
 )
-
--- Overview (hyprtasking fork): the 4-finger-up swipe opens it; these toggle it on/off.
-local _ovsw = "~/.config/hypr/custom/scripts/overview-switch.sh "
-hl.bind("SUPER + CTRL + 1", hl.dsp.exec_cmd(_ovsw .. "hyprtasking"), { description = "Overview: hyprtasking (adaptive grid)" })
-hl.bind("SUPER + CTRL + 0", hl.dsp.exec_cmd(_ovsw .. "off"),         { description = "Overview: disable plugin" })
-hl.bind("SUPER + grave",    hl.dsp.exec_cmd(_ovsw .. "toggle"),      { description = "Overview: open/close" })
-
--- Super + Space: toggle the workspace overview.
-hl.bind("SUPER + Space", hl.dsp.exec_cmd("~/.config/hypr/custom/scripts/overview-switch.sh toggle"), { description = "Overview: toggle workspace overview" })

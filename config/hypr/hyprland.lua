@@ -49,6 +49,14 @@ else
     require("hyprland.keybinds")
 end
 
+-- Hyprtasking overview: single source of truth. Apply logic is here (tracked);
+-- it reads settings from custom/hyprtasking.lua (user/GUI-owned, seeded from
+-- custom.defaults/) and applies config + gestures + keybinds + login restore.
+-- Sourced after keybinds so its binds register cleanly.
+if is_file_exists(HOME .. "/.config/hypr/hyprland/hyprtasking.lua") then
+    require("hyprland.hyprtasking")
+end
+
 -- nwg-displays support --
 if is_file_exists(HOME .. "/.config/hypr/workspaces.lua") then
     require("workspaces")
