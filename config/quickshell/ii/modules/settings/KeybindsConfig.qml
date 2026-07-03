@@ -189,7 +189,7 @@ ContentPage {
 
         Repeater {
             model: binds
-            delegate: Column {
+            delegate: ColumnLayout {
                 id: rowWrap
                 required property int index
                 required property string mods
@@ -211,8 +211,8 @@ ContentPage {
                 // section header
                 Rectangle {
                     visible: rowWrap.sectionStart
-                    width: parent.width
-                    height: visible ? 34 : 0
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: visible ? 34 : 0
                     color: "transparent"
                     RowLayout {
                         anchors.fill: parent
@@ -241,9 +241,9 @@ ContentPage {
 
                 // bind row
                 Rectangle {
-                    width: parent.width
+                    Layout.fillWidth: true
                     visible: !rowWrap.sectionCollapsed
-                    height: visible ? rowLayout.implicitHeight + 10 : 0
+                    Layout.preferredHeight: visible ? rowLayout.implicitHeight + 10 : 0
                     radius: Appearance.rounding.small
                     color: rowWrap.conflict ? ColorUtils.transparentize(Appearance.m3colors.m3error, 0.85) : "transparent"
 
@@ -265,6 +265,7 @@ ContentPage {
                             Layout.preferredWidth: 118
                             text: rowWrap.mods
                             placeholderText: "SUPER + ALT"
+                            wrapMode: Text.NoWrap
                             onEditingFinished: { binds.setProperty(rowWrap.index, "mods", text); root.scheduleSave(); }
                         }
                         StyledText { text: "+"; color: Appearance.colors.colSubtext }
@@ -272,6 +273,7 @@ ContentPage {
                             Layout.preferredWidth: 78
                             text: rowWrap.key
                             placeholderText: "Q"
+                            wrapMode: Text.NoWrap
                             onEditingFinished: { binds.setProperty(rowWrap.index, "key", text); root.scheduleSave(); }
                         }
                         StyledComboBox {
@@ -286,6 +288,7 @@ ContentPage {
                             visible: rowWrap.meta.arg === true
                             text: rowWrap.arg
                             placeholderText: rowWrap.meta.hint || Translation.tr("argument")
+                            wrapMode: Text.NoWrap
                             onEditingFinished: { binds.setProperty(rowWrap.index, "arg", text); root.scheduleSave(); }
                         }
                         // app picker (only for Run command)
@@ -301,6 +304,7 @@ ContentPage {
                             Layout.preferredWidth: 150
                             text: rowWrap.desc
                             placeholderText: Translation.tr("description")
+                            wrapMode: Text.NoWrap
                             onEditingFinished: { binds.setProperty(rowWrap.index, "desc", text); root.scheduleSave(); }
                         }
                         RippleButton {
