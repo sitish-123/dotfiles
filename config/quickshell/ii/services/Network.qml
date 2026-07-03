@@ -455,7 +455,11 @@ Singleton {
     Process {
         id: subscriber
         running: true
-        command: ["nmcli", "monitor"]
+        // setpriv --pdeathsig makes nmcli die with quickshell even on an unclean
+        // exit (SIGSEGV / kill -9), instead of orphaning to init. Persistent
+        // `nmcli monitor` orphans were piling up (one per crashed/killed shell or
+        // settings process) and hogging memory.
+        command: ["setpriv", "--pdeathsig", "TERM", "nmcli", "monitor"]
         stdout: SplitParser {
             onRead: root.update()
         }
