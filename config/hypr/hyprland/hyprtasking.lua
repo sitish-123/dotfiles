@@ -33,7 +33,9 @@ local defaults = {
         grid = { adaptive = true, rows = 3, cols = 4, loop = true },
     },
     gestures = {
-        enabled = true, open_fingers = 4, open_distance = 120,
+        enabled = true,
+        open_enabled = true, move_enabled = true, switch_enabled = true,  -- per-gesture toggles
+        open_fingers = 4, open_distance = 120,
         open_positive = true, move_fingers = 3, move_distance = 300,
     },
     keybinds = {
@@ -103,7 +105,7 @@ if _active == "hyprtasking" and hl.plugin and hl.plugin.hyprtasking then
             blur_bg              = M.settings.blur_bg,
             bg_color             = M.settings.bg_color,
             grid                 = M.settings.grid,
-            gestures             = M.settings.gestures,
+            gestures             = M.gestures,  -- gestures is top-level in the data table
         } } })
     end)
 end

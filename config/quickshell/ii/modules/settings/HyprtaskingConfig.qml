@@ -24,7 +24,9 @@ ContentPage {
     property int gapSize: 10
     property int rounding: 14
     property bool blurBg: true
-    property bool gesturesEnabled: true
+    property bool openGesture: true    // 4-finger ↕ open/close overview
+    property bool moveGesture: true    // 3-finger navigate the grid
+    property bool switchGesture: true  // 4-finger ↔ switch workspace
     property int openFingers: 4
     property int openDistance: 120
     property int moveFingers: 3
@@ -40,7 +42,7 @@ ContentPage {
             'g(){ hyprctl getoption "plugin:hyprtasking:$1" 2>/dev/null | grep -oE "(int|float): [-0-9.]+" | awk \'{print $2}\'; }; ' +
             'echo "blur_bg=$(g blur_bg)"; echo "rounding=$(g rounding)"; echo "gap_size=$(g gap_size)"; ' +
             'echo "adaptive=$(g grid:adaptive)"; echo "rows=$(g grid:rows)"; echo "cols=$(g grid:cols)"; ' +
-            'echo "gestures_enabled=$(g gestures:enabled)"; ' +
+            'echo "open_enabled=$(g gestures:open_enabled)"; echo "move_enabled=$(g gestures:move_enabled)"; echo "switch_enabled=$(g gestures:switch_enabled)"; ' +
             'echo "open_fingers=$(g gestures:open_fingers)"; echo "open_distance=$(g gestures:open_distance)"; ' +
             'echo "move_fingers=$(g gestures:move_fingers)"; ' +
             'echo "state=$(cat "$HOME/.config/hypr/custom/overview.state" 2>/dev/null)"']
@@ -61,7 +63,9 @@ ContentPage {
                 root.openFingers = num("open_fingers", 4);
                 root.openDistance = num("open_distance", 120);
                 root.moveFingers = num("move_fingers", 3);
-                root.gesturesEnabled = num("gestures_enabled", 1) !== 0;
+                root.openGesture = num("open_enabled", 1) !== 0;
+                root.moveGesture = num("move_enabled", 1) !== 0;
+                root.switchGesture = num("switch_enabled", 1) !== 0;
                 root.enabledOverview = (map["state"] ?? "hyprtasking") !== "none";
                 root.loaded = true;   // gate change handlers so the reads above don't self-apply
             }
@@ -90,7 +94,10 @@ return {
         grid = { adaptive = ${b(root.adaptive)}, rows = ${root.rows}, cols = ${root.cols}, loop = true },
     },
     gestures = {
-        enabled = ${b(root.gesturesEnabled)},
+        enabled = true,
+        open_enabled = ${b(root.openGesture)},
+        move_enabled = ${b(root.moveGesture)},
+        switch_enabled = ${b(root.switchGesture)},
         open_fingers  = ${root.openFingers},
         open_distance = ${root.openDistance},
         open_positive = true,
@@ -111,7 +118,7 @@ return {
         const cfg = `hl.config({plugin={hyprtasking={`
             + `gap_size=${root.gapSize},rounding=${root.rounding},blur_bg=${root.blurBg ? 1 : 0},`
             + `grid={adaptive=${root.adaptive},rows=${root.rows},cols=${root.cols}},`
-            + `gestures={enabled=${root.gesturesEnabled},open_fingers=${root.openFingers},open_distance=${root.openDistance},move_fingers=${root.moveFingers}}`
+            + `gestures={enabled=true,open_enabled=${root.openGesture},move_enabled=${root.moveGesture},switch_enabled=${root.switchGesture},open_fingers=${root.openFingers},open_distance=${root.openDistance},move_fingers=${root.moveFingers}}`
             + `}}})`;
         Quickshell.execDetached(["hyprctl", "eval", cfg]);
     }
@@ -213,24 +220,38 @@ return {
         title: Translation.tr("Gestures")
         enabled: root.enabledOverview
 
+        // Each gesture toggles independently.
         ConfigSwitch {
-            buttonIcon: "gesture"
-            text: Translation.tr("Enable trackpad gestures")
-            checked: root.gesturesEnabled
-            onCheckedChanged: { if (checked !== root.gesturesEnabled) { root.gesturesEnabled = checked; root.change(); } }
+            buttonIcon: "swipe_vertical"
+            text: Translation.tr("Open/close overview (4-finger up/down)")
+            checked: root.openGesture
+            onCheckedChanged: { if (checked !== root.openGesture) { root.openGesture = checked; root.change(); } }
+        }
+        ConfigSwitch {
+            buttonIcon: "drag_pan"
+            text: Translation.tr("Navigate grid (3-finger swipe)")
+            checked: root.moveGesture
+            onCheckedChanged: { if (checked !== root.moveGesture) { root.moveGesture = checked; root.change(); } }
+        }
+        ConfigSwitch {
+            buttonIcon: "swipe"
+            text: Translation.tr("Switch workspace (4-finger left/right)")
+            checked: root.switchGesture
+            onCheckedChanged: { if (checked !== root.switchGesture) { root.switchGesture = checked; root.change(); } }
         }
         ConfigRow {
-            enabled: root.gesturesEnabled
             ConfigSpinBox {
                 icon: "touch_app"
                 text: Translation.tr("Open fingers")
                 value: root.openFingers; from: 3; to: 4; stepSize: 1
+                enabled: root.openGesture
                 onValueChanged: { if (value !== root.openFingers) { root.openFingers = value; root.change(); } }
             }
             ConfigSpinBox {
                 icon: "touch_app"
                 text: Translation.tr("Move fingers")
                 value: root.moveFingers; from: 3; to: 4; stepSize: 1
+                enabled: root.moveGesture
                 onValueChanged: { if (value !== root.moveFingers) { root.moveFingers = value; root.change(); } }
             }
         }
@@ -238,7 +259,7 @@ return {
             icon: "open_in_full"
             text: Translation.tr("Open swipe distance")
             value: root.openDistance; from: 40; to: 400; stepSize: 20
-            enabled: root.gesturesEnabled
+            enabled: root.openGesture
             onValueChanged: { if (value !== root.openDistance) { root.openDistance = value; root.change(); } }
         }
     }

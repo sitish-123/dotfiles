@@ -26,6 +26,9 @@ return {
 
     gestures = {
         enabled       = true,
+        open_enabled  = true,   -- 4-finger up/down: open/close overview
+        move_enabled  = true,   -- 3-finger: navigate the grid
+        switch_enabled= true,   -- 4-finger left/right: switch workspace
         open_fingers  = 4,
         open_distance = 120,
         open_positive = true,
