@@ -260,7 +260,7 @@ ContentPage {
             placeholderText: Translation.tr("City name")
             text: Config.options.bar.weather.city
             wrapMode: TextEdit.Wrap
-            acceptsReturn: false
+            Keys.onReturnPressed: event => event.accepted = true  // city is single-line; swallow Enter
             onTextChanged: {
                 Config.options.bar.weather.city = text.trim();
             }
