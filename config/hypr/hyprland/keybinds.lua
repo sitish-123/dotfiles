@@ -357,7 +357,9 @@ hl.bind("SUPER + C", hl.dsp.exec_cmd(codeEditor), { description = "App: Code edi
 hl.bind("CTRL + SUPER + SHIFT + ALT + W", hl.dsp.exec_cmd(officeSoftware), { description = "App: Office software" })
 hl.bind("SUPER + X", hl.dsp.exec_cmd(textEditor), { description = "App: Text editor" })
 hl.bind("CTRL + SUPER + V", hl.dsp.exec_cmd(volumeMixer), { description = "App: Volume mixer" })
-hl.bind("SUPER + I", hl.dsp.exec_cmd(settingsApp), { description = "App: Settings app" })
+-- Instant Settings: toggle the persistent (prewarmed) quickshell Settings instance
+-- via IPC; falls back to the settingsApp launcher when qs isn't available.
+hl.bind("SUPER + I", hl.dsp.exec_cmd("command -v qs >/dev/null && ~/.config/hypr/custom/scripts/settings-toggle.sh || " .. settingsApp), { description = "App: Settings app (instant toggle)" })
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd(taskManager), { description = "App: Task manager" })
 
 --# Cursed stuff

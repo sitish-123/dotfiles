@@ -8,4 +8,9 @@ hl.on("hyprland.start", function ()
     -- Load Xft.dpi so XWayland apps (e.g. kitty forced to X11 for touch) scale at 1.6x
     hl.exec_cmd("xrdb -merge $HOME/.Xresources")
     -- doesn't need manual SUPER+CTRL+3 every boot. Loads once -> no reload-race crash.
+    -- Prewarm the quickshell Settings app HIDDEN so SUPER+I opens instantly (see
+    -- custom/scripts/settings-toggle.sh). II_SETTINGS_HIDDEN=1 -> starts hidden and
+    -- stays alive; the crash-recovery env vars are stripped so the child doesn't
+    -- reload shell.qml (the "3 stacked bars" bug). -n keeps it single-instance.
+    hl.exec_cmd("sleep 6 && command -v qs >/dev/null && env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL II_SETTINGS_HIDDEN=1 qs -p $HOME/.config/quickshell/${qsConfig:-ii}/settings.qml -n")
 end)

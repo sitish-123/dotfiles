@@ -11,6 +11,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -119,9 +120,39 @@ ApplicationWindow {
     ]
     property int currentPage: 0
 
-    visible: true
-    onClosing: Qt.quit()
+    // Persistent-instance model: when launched with II_SETTINGS_HIDDEN=1 (login prewarm)
+    // start hidden and stay alive so a later `ipc call settings show` opens instantly.
+    // A direct launch (no env var) still shows immediately.
+    visible: Quickshell.env("II_SETTINGS_HIDDEN") !== "1"
+    // Closing (X button / window close) hides instead of quitting, keeping the
+    // process warm for the next open.
+    onClosing: (close) => {
+        close.accepted = false;
+        root.visible = false;
+    }
     title: "illogical-impulse Settings"
+
+    IpcHandler {
+        target: "settings"
+
+        function toggle(): void {
+            root.visible = !root.visible;
+            if (root.visible) {
+                root.raise();
+                root.requestActivate();
+            }
+        }
+
+        function show(): void {
+            root.visible = true;
+            root.raise();
+            root.requestActivate();
+        }
+
+        function hide(): void {
+            root.visible = false;
+        }
+    }
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
