@@ -96,6 +96,23 @@ systemctl --user enable --now bluetooth-agent.service 2>/dev/null || \
     warn "couldn't enable bluetooth-agent (run inside your graphical session)"
 ok "Bluetooth pairing agent installed & enabled"
 
+# 4b-2b) Battery usage tracker -----------------------------------------------
+# "On battery for", "Screen on (since unplug)", "Last full charge" and the battery
+# history graph used to be tracked inside the quickshell bar process, which SIGSEGVs
+# several times a day — every crash could reset the clocks, and the sampler died with
+# the shell. This long-lived user daemon is the sole owner of those state files;
+# Battery.qml is now just a reader. See system/user/battery-tracker.py.
+info "Battery: installing usage tracker (user service)"
+install -Dm755 "$SYS/user/battery-tracker.py" "$HOME/.local/bin/battery-tracker"
+install -Dm644 "$SYS/user/battery-tracker.service" \
+    "$HOME/.config/systemd/user/battery-tracker.service"
+# Retire the old in-shell single-writer lock — nothing claims it anymore.
+rm -f "${XDG_RUNTIME_DIR:-/tmp}/qs_battery_usage.lock" 2>/dev/null || true
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now battery-tracker.service 2>/dev/null || \
+    warn "couldn't enable battery-tracker (run inside your graphical session)"
+ok "Battery usage tracker installed & enabled"
+
 # 4b-3) Wi-Fi hotspot helper -------------------------------------------------
 # The ii shell's Hotspot toggle (sidebar + settings) shells out to this root
 # helper, authorized passwordless for `wheel` by a polkit rule. The helper picks

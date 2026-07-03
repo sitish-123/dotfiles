@@ -74,6 +74,34 @@ sync_root_file "$DOT_ROOT/system/etc/polkit-1/rules.d/49-ii-hotspot.rules" \
     /etc/polkit-1/rules.d/49-ii-hotspot.rules 644
 [ "$_hs_changed" -eq 1 ] && { sudo systemctl try-reload-or-restart polkit.service 2>/dev/null || true; ok "hotspot helper synced"; }
 
+# Sync user-level services that live outside the symlinked config tree (they're
+# copied into ~/.local/bin + ~/.config/systemd/user, so a git pull alone doesn't
+# update them). Only re-install + restart when the installed copy actually differs.
+sync_user_unit() { # <script-src> <bin-dst> <service-src> <unit-name>
+    local changed=0
+    if ! cmp -s "$1" "$2" 2>/dev/null; then
+        install -Dm755 "$1" "$2"; changed=1
+    fi
+    local unit_dst="$HOME/.config/systemd/user/$4"
+    if ! cmp -s "$3" "$unit_dst" 2>/dev/null; then
+        install -Dm644 "$3" "$unit_dst"; changed=1
+    fi
+    systemctl --user daemon-reload 2>/dev/null || true
+    # Enable if this is the first time it's seen (migration for existing installs).
+    if ! systemctl --user is-enabled "$4" >/dev/null 2>&1; then
+        systemctl --user enable --now "$4" 2>/dev/null && info "enabled $4" || true
+        changed=0
+    fi
+    if [ "$changed" -eq 1 ]; then
+        systemctl --user restart "$4" 2>/dev/null && info "restarted $4" || true
+    fi
+}
+# Battery usage tracker: replaces the old in-quickshell tracking (which reset on every
+# shell crash). Harmless to run every update; only acts on a real change / first install.
+sync_user_unit "$DOT_ROOT/system/user/battery-tracker.py" "$HOME/.local/bin/battery-tracker" \
+    "$DOT_ROOT/system/user/battery-tracker.service" battery-tracker.service
+rm -f "${XDG_RUNTIME_DIR:-/tmp}/qs_battery_usage.lock" 2>/dev/null || true
+
 # Record the Hyprland version we just built against, so the next run detects the next bump.
 [ -n "$CUR_HVER" ] && { mkdir -p "$(dirname "$STATE")"; printf '%s\n' "$CUR_HVER" > "$STATE"; }
 

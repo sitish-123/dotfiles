@@ -1,0 +1,17 @@
+[Unit]
+Description=Battery usage tracker (on-battery / screen-on / history) for quickshell ii
+Documentation=file:%h/Projects/dotfiles/system/user/battery-tracker.py
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/battery-tracker
+Restart=on-failure
+RestartSec=5
+# Long-lived, tiny: it should just sit and poll. Cap it so a runaway can't hurt.
+Nice=5
+MemoryMax=64M
+
+[Install]
+WantedBy=graphical-session.target
