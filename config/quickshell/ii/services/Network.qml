@@ -26,20 +26,31 @@ Singleton {
     // re-prompting for credentials. Refreshed alongside every AP scan.
     property var savedWifiProfiles: []
     readonly property list<WifiAccessPoint> wifiNetworks: []
-    readonly property WifiAccessPoint active: wifiNetworks.find(n => n.active) ?? null
+    // getNetworks mutates wifiNetworks in place (push/splice), which does NOT emit a
+    // property-change signal — so bindings over wifiNetworks would go stale (the list
+    // showed empty for ~8s in a cold process until a rescan happened to kick them).
+    // Bump this after every mutation and depend on it in the derived bindings below.
+    property int wifiNetworksRevision: 0
+    readonly property WifiAccessPoint active: {
+        root.wifiNetworksRevision;
+        return wifiNetworks.find(n => n.active) ?? null;
+    }
     // Active first, then by signal *bucketed* to 20% steps, then SSID alphabetically.
     // Bucketing + alphabetical tiebreak keeps the order STABLE: raw signal jitters by
     // a few % every scan, and sorting on it reordered the list under the user's finger
     // mid-password-entry. Buckets only reorder on a real signal change.
-    readonly property list<var> friendlyWifiNetworks: [...wifiNetworks].sort((a, b) => {
-        if (a.active !== b.active)
-            return a.active ? -1 : 1;
-        const ba = Math.round((a.strength ?? 0) / 20);
-        const bb = Math.round((b.strength ?? 0) / 20);
-        if (ba !== bb)
-            return bb - ba;
-        return (a.ssid ?? "").localeCompare(b.ssid ?? "");
-    })
+    readonly property list<var> friendlyWifiNetworks: {
+        root.wifiNetworksRevision;
+        return [...wifiNetworks].sort((a, b) => {
+            if (a.active !== b.active)
+                return a.active ? -1 : 1;
+            const ba = Math.round((a.strength ?? 0) / 20);
+            const bb = Math.round((b.strength ?? 0) / 20);
+            if (ba !== bb)
+                return bb - ba;
+            return (a.ssid ?? "").localeCompare(b.ssid ?? "");
+        });
+    }
     // True while the user is mid-interaction (expanding a network, typing a password,
     // or a connect is in flight). Consumers pause the periodic rescan on this so the
     // list can't rebuild/reorder and destroy an open input form.
@@ -256,6 +267,8 @@ Singleton {
 
     function startHotspot(ssid: string, password: string, band = "2.4"): void {
         if (!ssid || ssid.length === 0) return;
+        root.hotspotError = "";
+        hotspotProc.errBuf = "";
         root.hotspotEnabling = true;
         root.hotspotSsid = ssid;
         root.hotspotPassword = password;
@@ -288,10 +301,26 @@ Singleton {
 
     Process {
         id: hotspotProc
+        property string errBuf: ""
         environment: ({ LANG: "C", LC_ALL: "C" })
-        stderr: SplitParser { onRead: line => { root.hotspotError = line; } }
+        // Buffer all stderr; the helper prints progress lines even on success, so we
+        // can't just keep the last line — we pick the meaningful reason on failure.
+        stderr: SplitParser { onRead: line => { hotspotProc.errBuf += line + "\n"; } }
         onExited: (exitCode, exitStatus) => {
             root.hotspotEnabling = false;
+            if (exitCode === 0) {
+                root.hotspotError = "";
+            } else {
+                // Prefer the helper's own human-readable reason lines (prefixed
+                // "ii-hotspot: "), skipping the "->" progress breadcrumb.
+                const reasons = hotspotProc.errBuf.split("\n")
+                    .filter(l => l.startsWith("ii-hotspot: ") && l.indexOf(" -> ") < 0)
+                    .map(l => l.replace("ii-hotspot: ", "").trim())
+                    .filter(l => l.length > 0);
+                root.hotspotError = reasons.length ? reasons[0]
+                    : (hotspotProc.errBuf.trim().split("\n").pop() || "Hotspot failed to start.");
+            }
+            hotspotProc.errBuf = "";
             root.update();
         }
     }
@@ -629,6 +658,8 @@ Singleton {
                         }));
                     }
                 }
+                // in-place push/splice above don't notify — kick the derived bindings
+                root.wifiNetworksRevision++;
             }
         }
     }
