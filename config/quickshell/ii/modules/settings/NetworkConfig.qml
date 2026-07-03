@@ -14,28 +14,29 @@ ContentPage {
     // Refetch the moment the page opens: the cached AP list shows instantly via
     // refreshNetworks(), and a full NIC rescan follows. In a freshly-opened settings
     // process Network.wifiEnabled isn't known yet here (it's read from nmcli async),
-    // so DON'T gate the open-scan on it — also kick a rescan the instant wifi is
-    // reported enabled, otherwise the first scan waits for the 6s timer.
+    // so DON'T gate the open-scan on it — also kick a rescan the instant wifi is enabled.
     Component.onCompleted: {
         Network.refreshNetworks();
         if (Network.wifiEnabled) Network.rescanWifi();
+        Network.loadHotspotConfig();
     }
     Connections {
         target: Network
         function onWifiEnabledChanged() { if (Network.wifiEnabled) Network.rescanWifi(); }
+        function onHotspotBandChanged() { hotspotCard.band = Network.hotspotBand; }
     }
     Timer {
         // Slow active rescan (finds new APs, ~1-8s). NM's environment changes slowly,
         // so 15s matches native applets; the cheap cached refresh below keeps the list
-        // and signal bars live in between without spinning.
+        // and signal bars live in between without spinning. Only while the Wi-Fi tab is up.
         interval: 15000
-        running: Network.wifiEnabled
+        running: Network.wifiEnabled && tabBar.currentIndex === 0
         repeat: true
         onTriggered: Network.rescanWifi()
     }
     Timer {
         interval: 2500
-        running: Network.wifiEnabled
+        running: Network.wifiEnabled && tabBar.currentIndex === 0
         repeat: true
         onTriggered: Network.refreshNetworks()
     }
@@ -45,15 +46,37 @@ ContentPage {
              : s > 40 ? "network_wifi_2_bar" : s > 20 ? "network_wifi_1_bar" : "signal_wifi_0_bar";
     }
 
-    ContentSection {
-        icon: "wifi"
-        title: Translation.tr("Wi-Fi")
+    // Compact round icon action (replaces the old full-width buttons).
+    component IconAction: RippleButton {
+        id: iconAction
+        property string symbolName
+        property bool accent: false
+        implicitWidth: 34
+        implicitHeight: 34
+        buttonRadius: Appearance.rounding.full
+        contentItem: MaterialSymbol {
+            anchors.centerIn: parent
+            text: iconAction.symbolName
+            iconSize: Appearance.font.pixelSize.larger
+            color: iconAction.accent ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant
+        }
+    }
 
-        RowLayout { // power + status + rescan
+    SecondaryTabBar {
+        id: tabBar
+        SecondaryTabButton { buttonIcon: "wifi"; buttonText: Translation.tr("Wi-Fi") }
+        SecondaryTabButton { buttonIcon: "wifi_tethering"; buttonText: Translation.tr("Hotspot") }
+    }
+
+    ColumnLayout { // ===================== Wi-Fi tab =====================
+        Layout.fillWidth: true
+        visible: tabBar.currentIndex === 0
+        spacing: 6
+
+        RowLayout { // power + status + actions
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 6
             ColumnLayout {
-                Layout.fillWidth: true
                 spacing: 0
                 StyledText { color: Appearance.colors.colOnSurface; text: Network.wifiEnabled ? Translation.tr("On") : Translation.tr("Off") }
                 StyledText {
@@ -65,11 +88,18 @@ ContentPage {
                         : Translation.tr("Not connected")
                 }
             }
-            RippleButton {
-                implicitWidth: 34; implicitHeight: 34
-                buttonRadius: Appearance.rounding.full
+            Item { Layout.fillWidth: true }
+            IconAction {
+                symbolName: "password"
+                accent: hiddenSection.open
+                enabled: Network.wifiEnabled
+                releaseAction: () => hiddenSection.open = !hiddenSection.open
+                StyledToolTip { text: Translation.tr("Add hidden network") }
+            }
+            IconAction {
                 enabled: Network.wifiEnabled && !Network.wifiScanning
                 releaseAction: () => Network.rescanWifi()
+                StyledToolTip { text: Translation.tr("Rescan") }
                 contentItem: MaterialSymbol {
                     id: rescanIcon
                     anchors.centerIn: parent
@@ -81,9 +111,38 @@ ContentPage {
             StyledSwitch { checked: Network.wifiEnabled; onToggled: Network.enableWifi(checked) }
         }
 
-        StyledIndeterminateProgressBar {
-            visible: Network.wifiScanning
+        ColumnLayout { // Add a hidden network (revealed by the header icon)
+            id: hiddenSection
+            property bool open: false
             Layout.fillWidth: true
+            visible: open && Network.wifiEnabled
+            spacing: 6
+            MaterialTextField {
+                id: hiddenSsid
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Network name (SSID)")
+            }
+            MaterialTextField {
+                id: hiddenPass
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Password (leave empty if open)"); echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhSensitiveData
+                onAccepted: if (hiddenSsid.text.length > 0) { Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text); hiddenSection.open = false; }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                DialogButton {
+                    buttonText: Translation.tr("Cancel")
+                    colBackground: Appearance.colors.colLayer4; colBackgroundHover: Appearance.colors.colLayer4Hover; colRipple: Appearance.colors.colLayer4Active
+                    onClicked: hiddenSection.open = false
+                }
+                DialogButton {
+                    enabled: hiddenSsid.text.length > 0
+                    buttonText: Translation.tr("Connect")
+                    onClicked: { Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text); hiddenSection.open = false; }
+                }
+            }
         }
 
         StyledText {
@@ -365,17 +424,12 @@ ContentPage {
         }
     }
 
-    ContentSection {
+    ColumnLayout { // ===================== Hotspot tab =====================
         id: hotspotCard
-        icon: "wifi_tethering"
-        title: Translation.tr("Hotspot")
+        Layout.fillWidth: true
+        visible: tabBar.currentIndex === 1
+        spacing: 6
         property string band: Network.hotspotBand
-
-        Component.onCompleted: Network.loadHotspotConfig()
-        Connections {
-            target: Network
-            function onHotspotBandChanged() { hotspotCard.band = Network.hotspotBand; }
-        }
 
         RowLayout { // power + status
             Layout.fillWidth: true
@@ -464,7 +518,7 @@ ContentPage {
             color: Appearance.colors.colSubtext
             wrapMode: Text.WordWrap
             text: Network.hotspotBandLocked
-                ? Translation.tr("You're on Wi-Fi, so the hotspot shares that connection over the same radio — Wi-Fi stays connected and the band follows its channel. (Needs linux-wifi-hotspot.)")
+                ? Translation.tr("You're on Wi-Fi, so the hotspot shares that connection on the same channel (Wi-Fi stays up). This works on 2.4 GHz and non-DFS 5 GHz (ch36-48 or 149-161), but NOT on DFS/radar channels like 52 — reconnect on a non-DFS channel or use Ethernet to share those. (Needs linux-wifi-hotspot.)")
                 : Translation.tr("The radio is free, so you can pick the band. The hotspot shares your Ethernet/USB uplink over Wi-Fi (or runs as a local AP if there's no uplink).")
         }
         RowLayout {
@@ -477,49 +531,6 @@ ContentPage {
                 onClicked: {
                     if (Network.hotspotActive) Network.stopHotspot();
                     else Network.startHotspot(hsSsidField.text, hsPassField.text, hotspotCard.band);
-                }
-            }
-        }
-    }
-
-    ContentSection {
-        icon: "add"
-        title: Translation.tr("Other")
-        visible: Network.wifiEnabled
-
-        ColumnLayout { // Add a hidden network (SSID not broadcast)
-            id: hiddenSection
-            property bool open: false
-            Layout.fillWidth: true
-            spacing: 6
-            DialogButton {
-                Layout.fillWidth: true
-                buttonText: hiddenSection.open ? Translation.tr("Cancel") : Translation.tr("Add hidden network")
-                colBackground: Appearance.colors.colLayer4; colBackgroundHover: Appearance.colors.colLayer4Hover; colRipple: Appearance.colors.colLayer4Active
-                onClicked: hiddenSection.open = !hiddenSection.open
-            }
-            MaterialTextField {
-                id: hiddenSsid
-                visible: hiddenSection.open
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Network name (SSID)")
-            }
-            MaterialTextField {
-                id: hiddenPass
-                visible: hiddenSection.open
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Password (leave empty if open)"); echoMode: TextInput.Password
-                inputMethodHints: Qt.ImhSensitiveData
-                onAccepted: if (hiddenSsid.text.length > 0) { Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text); hiddenSection.open = false; }
-            }
-            RowLayout {
-                visible: hiddenSection.open
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                DialogButton {
-                    enabled: hiddenSsid.text.length > 0
-                    buttonText: Translation.tr("Connect")
-                    onClicked: { Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text); hiddenSection.open = false; }
                 }
             }
         }
