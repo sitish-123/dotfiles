@@ -47,8 +47,14 @@ end
 -- Keybinds: custom/keybinds.lua is the complete replacement when present
 -- (hyprland/keybinds.lua is skipped to avoid duplicate bindings).
 -- On a fresh install with no custom/keybinds.lua the shipped defaults load.
+-- Keybinds: custom/keybinds.lua is now a GUI-managed DATA table (Settings > Keybinds),
+-- applied by the tracked engine hyprland/userbinds.lua (which also keeps the dynamic
+-- binds — group-aware workspace switching, zoom, the VM submap — working). The engine
+-- is backward compatible: if custom/keybinds.lua is still the old imperative format it
+-- self-applies on require and the engine's apply() is a no-op. On a fresh install with
+-- no custom/keybinds.lua the shipped hyprland/keybinds.lua defaults load.
 if is_file_exists(HOME .. "/.config/hypr/custom/keybinds.lua") then
-    require("custom.keybinds")
+    require("hyprland.userbinds")
 else
     require("hyprland.keybinds")
 end
