@@ -24,13 +24,7 @@ ApplicationWindow {
     property real contentPadding: 8
     property bool showNextTime: false
     property var pages: [
-        // --- System ---
-        {
-            section: Translation.tr("System"),
-            name: Translation.tr("Battery"),
-            icon: "battery_full",
-            component: "modules/settings/BatteryConfig.qml"
-        },
+        // ── System: hardware & OS ───────────────────────────────────────────
         {
             section: Translation.tr("System"),
             name: Translation.tr("Network"),
@@ -63,66 +57,75 @@ ApplicationWindow {
         },
         {
             section: Translation.tr("System"),
+            name: Translation.tr("Battery"),
+            icon: "battery_full",
+            component: "modules/settings/BatteryConfig.qml"
+        },
+        {
+            section: Translation.tr("System"),
             name: Translation.tr("Updates"),
             icon: "system_update",
             component: "modules/settings/UpdatesConfig.qml"
         },
-        // --- Customization ---
+        // ── Appearance: how the desktop looks ───────────────────────────────
         {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Appearance"),
             name: Translation.tr("Personalization"),
             icon: "palette",
             component: "modules/settings/PersonalizationConfig.qml"
         },
         {
-            section: Translation.tr("Customization"),
-            name: Translation.tr("General"),
-            icon: "browse",
-            component: "modules/settings/GeneralConfig.qml"
+            section: Translation.tr("Appearance"),
+            name: Translation.tr("Wallpaper"),
+            icon: "wallpaper",
+            component: "modules/settings/BackgroundConfig.qml"
         },
         {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Appearance"),
             name: Translation.tr("Bar"),
             icon: "toast",
             iconRotation: 180,
             component: "modules/settings/BarConfig.qml"
         },
         {
-            section: Translation.tr("Customization"),
-            name: Translation.tr("Background"),
-            icon: "texture",
-            component: "modules/settings/BackgroundConfig.qml"
-        },
-        {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Appearance"),
             name: Translation.tr("Interface"),
             icon: "bottom_app_bar",
             component: "modules/settings/InterfaceConfig.qml"
         },
+        // ── Window manager: Hyprland behavior ───────────────────────────────
         {
-            section: Translation.tr("Customization"),
-            name: Translation.tr("Window Manager"),
-            icon: "dashboard",
+            section: Translation.tr("Window manager"),
+            name: Translation.tr("Input & style"),
+            icon: "tune",
             component: "modules/settings/WindowManagerConfig.qml"
         },
         {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Window manager"),
             name: Translation.tr("Overview"),
             icon: "grid_view",
             component: "modules/settings/HyprtaskingConfig.qml"
         },
+        // ── Shell: quickshell internals ─────────────────────────────────────
         {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Shell"),
+            name: Translation.tr("General"),
+            icon: "browse",
+            component: "modules/settings/GeneralConfig.qml"
+        },
+        {
+            section: Translation.tr("Shell"),
             name: Translation.tr("Services"),
             icon: "settings",
             component: "modules/settings/ServicesConfig.qml"
         },
         {
-            section: Translation.tr("Customization"),
+            section: Translation.tr("Shell"),
             name: Translation.tr("Advanced"),
             icon: "construction",
             component: "modules/settings/AdvancedConfig.qml"
         },
+        // ── About ───────────────────────────────────────────────────────────
         {
             section: Translation.tr("About"),
             name: Translation.tr("About"),
@@ -253,7 +256,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 Layout.margins: 5
                 clip: true
-                implicitWidth: navRail.expanded ? 150 : fab.baseSize
+                implicitWidth: navRail.expanded ? 200 : fab.baseSize
                 Behavior on implicitWidth {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
