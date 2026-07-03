@@ -157,22 +157,21 @@ Singleton {
     // Sample format: [timestamp, percent, watts, "proc:cpu%,...", rx_bytes, tx_bytes]
     property var batteryHistory: []
 
-    // Poll the usage file often (so "On battery for" / "Screen on" stay current) and
-    // the larger, slow-moving history file less often. onBatterySeconds also ticks
-    // live off nowTick between reloads, so the counter never looks frozen.
-    Timer {
-        interval: 5000; running: true; repeat: true; triggeredOnStart: false
-        onTriggered: { root.nowTick++; usageFile.reload(); }
-    }
-    Timer {
-        interval: 60000; running: true; repeat: true; triggeredOnStart: false
-        onTriggered: historyFile.reload()
-    }
+    // File reloads are EVENT-DRIVEN (inotify via watchChanges) — the daemon is the
+    // sole writer, so we reload only when it actually writes, not on a poll. (Verified
+    // watchChanges fires on the daemon's atomic rename-replace writes, not just
+    // in-place ones.) The only timer left is a pure-JS tick so the live "On battery
+    // for" label advances between the daemon's ~20s writes — it does no I/O.
+    Timer { interval: 5000; running: true; repeat: true; onTriggered: root.nowTick++ }
+    Timer { id: reloadDebounce; interval: 120; repeat: false
+        onTriggered: { usageFile.reload(); historyFile.reload() } }
     Component.onCompleted: { usageFile.reload(); historyFile.reload() }
 
     FileView {
         id: usageFile
         path: Qt.resolvedUrl(`${Directories.state}/user/battery_usage.json`)
+        watchChanges: true
+        onFileChanged: reloadDebounce.restart()
         onLoaded: {
             try {
                 const d = JSON.parse(usageFile.text());
@@ -185,6 +184,8 @@ Singleton {
     FileView {
         id: historyFile
         path: Qt.resolvedUrl(`${Directories.state}/user/battery_history.json`)
+        watchChanges: true
+        onFileChanged: reloadDebounce.restart()
         onLoaded: {
             try { root.batteryHistory = JSON.parse(historyFile.text()).samples ?? [] } catch (e) {}
         }
