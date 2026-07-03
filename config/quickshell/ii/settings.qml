@@ -106,6 +106,12 @@ ApplicationWindow {
             icon: "grid_view",
             component: "modules/settings/HyprtaskingConfig.qml"
         },
+        {
+            section: Translation.tr("Window manager"),
+            name: Translation.tr("Keybinds"),
+            icon: "keyboard",
+            component: "modules/settings/KeybindsConfig.qml"
+        },
         // ── Startup: session env & autostart ────────────────────────────────
         {
             section: Translation.tr("Startup"),
