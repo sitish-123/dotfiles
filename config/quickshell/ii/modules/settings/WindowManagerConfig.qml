@@ -43,7 +43,7 @@ ContentPage {
         id: reader
         running: true
         command: ["bash", "-c",
-            'g(){ hyprctl getoption "$1" 2>/dev/null | grep -E "int:|float:|bool:|custom type:" | head -1 | grep -oE "[-0-9]+\\.?[0-9]*" | head -1; }; ' +
+            'g(){ hyprctl getoption "$1" 2>/dev/null | grep -E "^[[:space:]]*(int|float|bool):" | head -1 | sed -E "s/^[[:space:]]*(int|float|bool): *([^ ]*).*/\\2/"; }; ' +
             'echo "sensitivity=$(g input:sensitivity)"; echo "follow_mouse=$(g input:follow_mouse)"; ' +
             'echo "repeat_delay=$(g input:repeat_delay)"; echo "repeat_rate=$(g input:repeat_rate)"; ' +
             'echo "natural_scroll=$(g input:touchpad:natural_scroll)"; ' +
@@ -58,25 +58,30 @@ ContentPage {
             onStreamFinished: {
                 const m = {};
                 for (const line of text.trim().split("\n")) { const i = line.indexOf("="); if (i >= 0) m[line.slice(0, i)] = line.slice(i + 1).trim(); }
+                // Numeric parse (int/float). getoption prints numbers here.
                 const n = (k, d) => { const v = parseFloat(m[k]); return isNaN(v) ? d : v; };
+                // Boolean parse. getoption prints `bool: true/false` — the WORD, not a
+                // number, so the old numeric extraction always failed and every toggle
+                // silently reverted to its default (and then clobbered the saved value).
+                const tf = (k, d) => { const v = m[k]; if (v === "true" || v === "1") return true; if (v === "false" || v === "0") return false; return d; };
                 root.sensitivity = n("sensitivity", 0);
                 root.followMouse = n("follow_mouse", 1);
                 root.repeatDelay = n("repeat_delay", 250);
                 root.repeatRate = n("repeat_rate", 35);
-                root.naturalScroll = n("natural_scroll", 1) !== 0;
-                root.disableWhileTyping = n("dwt", 0) !== 0;
-                root.clickfinger = n("clickfinger", 1) !== 0;
+                root.naturalScroll = tf("natural_scroll", true);
+                root.disableWhileTyping = tf("dwt", false);
+                root.clickfinger = tf("clickfinger", true);
                 root.scrollFactor = n("scroll_factor", 0.7);
                 root.gapsIn = n("gaps_in", 2);
                 root.gapsOut = n("gaps_out", 4);
                 root.borderSize = n("border", 1);
                 root.rounding = n("rounding", 18);
-                root.blurEnabled = n("blur", 1) !== 0;
+                root.blurEnabled = tf("blur", true);
                 root.blurSize = n("blur_size", 10);
                 root.blurPasses = n("blur_passes", 3);
-                root.dimInactive = n("dim", 1) !== 0;
+                root.dimInactive = tf("dim", true);
                 root.dimStrength = n("dim_strength", 0.05);
-                root.animationsEnabled = n("anim", 1) !== 0;
+                root.animationsEnabled = tf("anim", true);
                 root.loaded = true;
             }
         }

@@ -269,7 +269,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 Layout.margins: 5
                 clip: true
-                implicitWidth: navRail.expanded ? 200 : fab.baseSize
+                implicitWidth: navRail.expanded ? 235 : fab.baseSize
                 Behavior on implicitWidth {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
