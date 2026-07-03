@@ -4,6 +4,7 @@ import qs.services.network
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
@@ -58,10 +59,12 @@ WindowDialog {
     Component.onCompleted: {
         Network.refreshNetworks();
         if (Network.wifiEnabled) Network.rescanWifi();
+        Network.loadHotspotConfig();
     }
     Connections {
         target: Network
         function onWifiEnabledChanged() { if (Network.wifiEnabled) Network.rescanWifi(); }
+        function onHotspotBandChanged() { hotspotTab.band = Network.hotspotBand; }
     }
     // Periodic rescan to keep the list fresh — but NOT while the user is interacting
     // (expanding a network, typing a password, connecting, or using the hidden/QR
@@ -87,295 +90,258 @@ WindowDialog {
         onTriggered: Network.refreshNetworks()
     }
 
-    RowLayout { // Title + Wi-Fi toggle
-        Layout.fillWidth: true
-        spacing: 8
-        WindowDialogTitle {
-            Layout.fillWidth: true
-            text: Translation.tr("Wi-Fi")
-        }
-        StyledSwitch {
-            checked: Network.wifiEnabled
-            onToggled: Network.enableWifi(checked)
-        }
-    }
-
-    RowLayout { // Status + rescan
-        Layout.fillWidth: true
-        Layout.topMargin: -4
-        spacing: 8
-        StyledText {
-            Layout.fillWidth: true
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            elide: Text.ElideRight
-            text: !Network.wifiEnabled ? Translation.tr("Wi-Fi is off")
-                : Network.active ? Translation.tr("Connected to %1").arg(Network.active.ssid)
-                : Network.wifiScanning ? Translation.tr("Scanning…")
-                : Translation.tr("Not connected")
-        }
-        RippleButton {
-            implicitWidth: 34
-            implicitHeight: 34
-            buttonRadius: Appearance.rounding.full
-            enabled: Network.wifiEnabled && !Network.wifiScanning
-            releaseAction: () => Network.rescanWifi()
-            contentItem: MaterialSymbol {
-                id: rescanIcon
-                anchors.centerIn: parent
-                text: "refresh"
-                iconSize: Appearance.font.pixelSize.larger
-                color: Appearance.colors.colOnSurfaceVariant
-                RotationAnimator on rotation {
-                    running: Network.wifiScanning
-                    loops: Animation.Infinite
-                    from: 0; to: 360; duration: 900
-                    onRunningChanged: if (!running) rescanIcon.rotation = 0
-                }
-            }
+    // Compact round icon action (replaces the old full-width buttons).
+    component IconAction: RippleButton {
+        id: iconAction
+        property string symbolName
+        property bool accent: false
+        implicitWidth: 36
+        implicitHeight: 36
+        buttonRadius: Appearance.rounding.full
+        contentItem: MaterialSymbol {
+            anchors.centerIn: parent
+            text: iconAction.symbolName
+            iconSize: Appearance.font.pixelSize.larger
+            color: iconAction.accent ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant
         }
     }
 
-    // Full-width divider that turns INTO the scan progress line in place. Both share a
-    // fixed 4px slot so toggling scanning on/off never shifts the layout (the old code
-    // swapped a 1px separator for a taller progress bar, jumping the header every 6s).
-    Item {
-        Layout.fillWidth: true
-        Layout.topMargin: -8
-        Layout.bottomMargin: -8
-        Layout.leftMargin: -Appearance.rounding.large
-        Layout.rightMargin: -Appearance.rounding.large
-        implicitHeight: 4
-        Rectangle {
-            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
-            height: 1
-            color: Appearance.colors.colOutline
-            visible: !Network.wifiScanning
-        }
-        StyledIndeterminateProgressBar {
-            anchors.fill: parent
-            visible: Network.wifiScanning
-        }
+    SecondaryTabBar {
+        id: tabBar
+        SecondaryTabButton { buttonIcon: "wifi"; buttonText: Translation.tr("Wi-Fi") }
+        SecondaryTabButton { buttonIcon: "wifi_tethering"; buttonText: Translation.tr("Hotspot") }
     }
 
-    StyledText { // Empty / off states
-        visible: Network.friendlyWifiNetworks.length === 0
+    StackLayout {
         Layout.fillWidth: true
-        Layout.topMargin: 20
-        Layout.bottomMargin: 20
-        horizontalAlignment: Text.AlignHCenter
-        color: Appearance.colors.colSubtext
-        text: !Network.wifiEnabled ? Translation.tr("Turn on Wi-Fi to see networks")
-            : Network.wifiScanning ? Translation.tr("Scanning for networks…")
-            : Translation.tr("No networks found")
-    }
-
-    ListView {
-        visible: Network.friendlyWifiNetworks.length > 0
         Layout.fillHeight: true
-        Layout.fillWidth: true
-        Layout.topMargin: -15
-        Layout.bottomMargin: -16
-        Layout.leftMargin: -Appearance.rounding.large
-        Layout.rightMargin: -Appearance.rounding.large
+        currentIndex: tabBar.currentIndex
 
-        clip: true
-        spacing: 0
-        boundsBehavior: Flickable.StopAtBounds
+        // ===================== Wi-Fi tab =====================
+        ColumnLayout {
+            spacing: 10
 
-        model: ScriptModel {
-            objectProp: "apId"
-            values: Network.friendlyWifiNetworks
-        }
-        delegate: WifiNetworkItem {
-            required property WifiAccessPoint modelData
-            wifiNetwork: modelData
-            width: ListView.view.width
-        }
-    }
-
-    ColumnLayout { // Add a hidden network (SSID not broadcast)
-        id: hiddenSection
-        property bool open: false
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        visible: Network.wifiEnabled
-        spacing: 6
-
-        DialogButton {
-            Layout.fillWidth: true
-            buttonText: hiddenSection.open ? Translation.tr("Cancel") : Translation.tr("Add hidden network")
-            colBackground: Appearance.colors.colLayer4
-            colBackgroundHover: Appearance.colors.colLayer4Hover
-            colRipple: Appearance.colors.colLayer4Active
-            onClicked: hiddenSection.open = !hiddenSection.open
-        }
-        MaterialTextField {
-            id: hiddenSsid
-            visible: hiddenSection.open
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Network name (SSID)")
-        }
-        MaterialTextField {
-            id: hiddenPass
-            visible: hiddenSection.open
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Password (leave empty if open)")
-            echoMode: TextInput.Password
-            inputMethodHints: Qt.ImhSensitiveData
-            onAccepted: if (hiddenSsid.text.length > 0) Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text)
-        }
-        RowLayout {
-            visible: hiddenSection.open
-            Layout.fillWidth: true
-            Item { Layout.fillWidth: true }
-            DialogButton {
-                enabled: hiddenSsid.text.length > 0
-                buttonText: Translation.tr("Connect")
-                onClicked: {
-                    Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text);
-                    hiddenSection.open = false;
+            RowLayout { // status + compact actions + power
+                Layout.fillWidth: true
+                spacing: 2
+                StyledText {
+                    Layout.fillWidth: true
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    elide: Text.ElideRight
+                    text: !Network.wifiEnabled ? Translation.tr("Wi-Fi is off")
+                        : Network.active ? Translation.tr("Connected to %1").arg(Network.active.ssid)
+                        : Network.wifiScanning ? Translation.tr("Scanning…")
+                        : Translation.tr("Not connected")
+                }
+                IconAction {
+                    symbolName: "password"
+                    accent: hiddenSection.open
+                    enabled: Network.wifiEnabled
+                    releaseAction: () => hiddenSection.open = !hiddenSection.open
+                    StyledToolTip { text: Translation.tr("Add hidden network") }
+                }
+                IconAction {
+                    symbolName: "qr_code_scanner"
+                    accent: qrScanProc.running
+                    enabled: Network.wifiEnabled
+                    releaseAction: () => {
+                        if (qrScanProc.running) { qrScanProc.running = false; return; }
+                        qrStatus.text = ""; qrScanProc.running = true;
+                    }
+                    StyledToolTip { text: Translation.tr("Scan Wi-Fi QR code") }
+                }
+                IconAction {
+                    enabled: Network.wifiEnabled && !Network.wifiScanning
+                    releaseAction: () => Network.rescanWifi()
+                    StyledToolTip { text: Translation.tr("Rescan") }
+                    contentItem: MaterialSymbol {
+                        id: rescanIcon
+                        anchors.centerIn: parent
+                        text: "refresh"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colOnSurfaceVariant
+                        RotationAnimator on rotation {
+                            running: Network.wifiScanning
+                            loops: Animation.Infinite
+                            from: 0; to: 360; duration: 900
+                            onRunningChanged: if (!running) rescanIcon.rotation = 0
+                        }
+                    }
+                }
+                StyledSwitch {
+                    checked: Network.wifiEnabled
+                    onToggled: Network.enableWifi(checked)
                 }
             }
-        }
-    }
 
-    ColumnLayout { // Scan a Wi-Fi QR with the webcam to connect
-        id: qrSection
-        Layout.fillWidth: true
-        Layout.topMargin: 2
-        visible: Network.wifiEnabled
-        spacing: 6
-
-        DialogButton {
-            Layout.fillWidth: true
-            enabled: !qrScanProc.running
-            buttonText: qrScanProc.running ? Translation.tr("Point the camera at a Wi-Fi QR…")
-                                           : Translation.tr("Scan Wi-Fi QR code")
-            colBackground: Appearance.colors.colLayer4
-            colBackgroundHover: Appearance.colors.colLayer4Hover
-            colRipple: Appearance.colors.colLayer4Active
-            onClicked: { qrStatus.text = ""; qrScanProc.running = true; }
-        }
-        RowLayout {
-            visible: qrScanProc.running || qrStatus.text.length > 0
-            Layout.fillWidth: true
-            spacing: 8
-            StyledText {
-                id: qrStatus
+            ColumnLayout { // Add a hidden network (SSID not broadcast) — revealed by the icon
+                id: hiddenSection
+                property bool open: false
                 Layout.fillWidth: true
-                font.pixelSize: Appearance.font.pixelSize.smaller
+                visible: open && Network.wifiEnabled
+                spacing: 6
+                MaterialTextField {
+                    id: hiddenSsid
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Network name (SSID)")
+                }
+                MaterialTextField {
+                    id: hiddenPass
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Password (leave empty if open)")
+                    echoMode: TextInput.Password
+                    inputMethodHints: Qt.ImhSensitiveData
+                    onAccepted: if (hiddenSsid.text.length > 0) Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text)
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    DialogButton {
+                        buttonText: Translation.tr("Cancel")
+                        colBackground: Appearance.colors.colLayer4
+                        colBackgroundHover: Appearance.colors.colLayer4Hover
+                        colRipple: Appearance.colors.colLayer4Active
+                        onClicked: hiddenSection.open = false
+                    }
+                    DialogButton {
+                        enabled: hiddenSsid.text.length > 0
+                        buttonText: Translation.tr("Connect")
+                        onClicked: {
+                            Network.connectHiddenNetwork(hiddenSsid.text, hiddenPass.text);
+                            hiddenSection.open = false;
+                        }
+                    }
+                }
+            }
+
+            RowLayout { // QR scan status — revealed while the camera is up
+                visible: qrScanProc.running || qrStatus.text.length > 0
+                Layout.fillWidth: true
+                spacing: 8
+                StyledText {
+                    id: qrStatus
+                    Layout.fillWidth: true
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    elide: Text.ElideRight
+                    text: qrScanProc.running ? Translation.tr("Point the camera at a Wi-Fi QR…") : ""
+                }
+            }
+
+            StyledText { // Empty / off states
+                visible: Network.friendlyWifiNetworks.length === 0
+                Layout.fillWidth: true
+                Layout.topMargin: 16
+                Layout.bottomMargin: 16
+                horizontalAlignment: Text.AlignHCenter
                 color: Appearance.colors.colSubtext
-                elide: Text.ElideRight
-                text: ""
+                text: !Network.wifiEnabled ? Translation.tr("Turn on Wi-Fi to see networks")
+                    : Network.wifiScanning ? Translation.tr("Scanning for networks…")
+                    : Translation.tr("No networks found")
             }
-            DialogButton {
-                visible: qrScanProc.running
-                buttonText: Translation.tr("Cancel")
-                onClicked: qrScanProc.running = false
-            }
-        }
-    }
 
-    ColumnLayout { // Wi-Fi hotspot (share this machine's connection over AP mode)
-        id: hotspotSection
-        property bool open: false
-        property string band: Network.hotspotBand
-        Layout.fillWidth: true
-        Layout.topMargin: 2
-        spacing: 6
-
-        Component.onCompleted: Network.loadHotspotConfig()
-        // Keep the band selector in sync with the loaded/saved profile.
-        Connections {
-            target: Network
-            function onHotspotBandChanged() { hotspotSection.band = Network.hotspotBand; }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            DialogButton {
+            ListView {
+                visible: Network.friendlyWifiNetworks.length > 0
+                Layout.fillHeight: true
                 Layout.fillWidth: true
-                buttonText: hotspotSection.open ? Translation.tr("Hide hotspot settings")
-                    : Network.hotspotActive ? Translation.tr("Hotspot on · %1 device(s)").arg(Network.hotspotClients)
-                    : Translation.tr("Wi-Fi hotspot")
-                colBackground: Appearance.colors.colLayer4
-                colBackgroundHover: Appearance.colors.colLayer4Hover
-                colRipple: Appearance.colors.colLayer4Active
-                onClicked: hotspotSection.open = !hotspotSection.open
-            }
-            StyledSwitch {
-                enabled: !Network.hotspotEnabling && (hsSsid.text.length > 0)
-                checked: Network.hotspotActive
-                onToggled: {
-                    if (checked) Network.startHotspot(hsSsid.text, hsPass.text, hotspotSection.band);
-                    else Network.stopHotspot();
+                Layout.leftMargin: -Appearance.rounding.large
+                Layout.rightMargin: -Appearance.rounding.large
+
+                clip: true
+                spacing: 0
+                boundsBehavior: Flickable.StopAtBounds
+
+                model: ScriptModel {
+                    objectProp: "apId"
+                    values: Network.friendlyWifiNetworks
+                }
+                delegate: WifiNetworkItem {
+                    required property WifiAccessPoint modelData
+                    wifiNetwork: modelData
+                    width: ListView.view.width
                 }
             }
+
+            Item { Layout.fillHeight: true; visible: Network.friendlyWifiNetworks.length === 0 } // keep tab height stable
         }
-        MaterialTextField {
-            id: hsSsid
-            visible: hotspotSection.open
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Hotspot name (SSID)")
-            text: Network.hotspotSsid
-        }
-        MaterialTextField {
-            id: hsPass
-            visible: hotspotSection.open
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Password (8+ chars, empty = open)")
-            echoMode: TextInput.Password
-            inputMethodHints: Qt.ImhSensitiveData
-            text: Network.hotspotPassword
-        }
-        RowLayout { // 2.4 GHz / 5 GHz band selector (locked to client channel on Wi-Fi)
-            visible: hotspotSection.open
-            Layout.fillWidth: true
-            spacing: 6
-            StyledText {
+
+        // ===================== Hotspot tab =====================
+        ColumnLayout {
+            id: hotspotTab
+            property string band: Network.hotspotBand
+            spacing: 10
+
+            RowLayout { // header + power
                 Layout.fillWidth: true
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
-                text: Network.hotspotBandLocked ? Translation.tr("Band (follows Wi-Fi)") : Translation.tr("Band")
-            }
-            Repeater {
-                model: [{ label: Translation.tr("2.4 GHz"), val: "2.4" }, { label: Translation.tr("5 GHz"), val: "5" }]
-                delegate: DialogButton {
-                    required property var modelData
-                    enabled: !Network.hotspotBandLocked && !Network.hotspotActive
-                    buttonText: modelData.label
-                    colBackground: hotspotSection.band === modelData.val ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
-                    colText: hotspotSection.band === modelData.val ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnSurfaceVariant
-                    onClicked: hotspotSection.band = modelData.val
+                spacing: 8
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    StyledText {
+                        color: Appearance.colors.colOnSurface
+                        text: Translation.tr("Wi-Fi hotspot")
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        elide: Text.ElideRight
+                        text: Network.hotspotEnabling ? Translation.tr("Applying…")
+                            : Network.hotspotActive ? Translation.tr("On · %1 device(s)").arg(Network.hotspotClients)
+                            : (hsPass.text.length > 0 && hsPass.text.length < 8) ? Translation.tr("Password needs 8+ characters")
+                            : Network.hotspotBandLocked ? Translation.tr("Shares your Wi-Fi (stays connected)")
+                            : Translation.tr("Off")
+                    }
+                }
+                StyledSwitch {
+                    enabled: !Network.hotspotEnabling && hsSsid.text.length > 0
+                        && (hsPass.text.length === 0 || hsPass.text.length >= 8)
+                    checked: Network.hotspotActive
+                    onToggled: {
+                        if (checked) Network.startHotspot(hsSsid.text, hsPass.text, hotspotTab.band);
+                        else Network.stopHotspot();
+                    }
                 }
             }
-        }
-        RowLayout { // status + start/stop
-            visible: hotspotSection.open
-            Layout.fillWidth: true
-            spacing: 8
-            StyledText {
+
+            MaterialTextField {
+                id: hsSsid
                 Layout.fillWidth: true
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
-                elide: Text.ElideRight
-                text: Network.hotspotEnabling ? Translation.tr("Applying…")
-                    : Network.hotspotActive ? Translation.tr("On · %1 device(s)").arg(Network.hotspotClients)
-                    : (hsPass.text.length > 0 && hsPass.text.length < 8) ? Translation.tr("Password needs 8+ characters")
-                    : Network.hotspotBandLocked ? Translation.tr("Shares your Wi-Fi (stays connected)")
-                    : Translation.tr("Off")
+                placeholderText: Translation.tr("Hotspot name (SSID)")
+                text: Network.hotspotSsid
             }
-            DialogButton {
-                enabled: !Network.hotspotEnabling && hsSsid.text.length > 0
-                    && (hsPass.text.length === 0 || hsPass.text.length >= 8)
-                buttonText: Network.hotspotActive ? Translation.tr("Stop") : Translation.tr("Start")
-                onClicked: {
-                    if (Network.hotspotActive) Network.stopHotspot();
-                    else Network.startHotspot(hsSsid.text, hsPass.text, hotspotSection.band);
+            MaterialTextField {
+                id: hsPass
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Password (8+ chars, empty = open)")
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhSensitiveData
+                text: Network.hotspotPassword
+            }
+            RowLayout { // 2.4 GHz / 5 GHz band selector (locked to client channel on Wi-Fi)
+                Layout.fillWidth: true
+                spacing: 6
+                StyledText {
+                    Layout.fillWidth: true
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    text: Network.hotspotBandLocked ? Translation.tr("Band (follows Wi-Fi)") : Translation.tr("Band")
+                }
+                Repeater {
+                    model: [{ label: Translation.tr("2.4 GHz"), val: "2.4" }, { label: Translation.tr("5 GHz"), val: "5" }]
+                    delegate: DialogButton {
+                        required property var modelData
+                        enabled: !Network.hotspotBandLocked && !Network.hotspotActive
+                        buttonText: modelData.label
+                        colBackground: hotspotTab.band === modelData.val ? Appearance.colors.colPrimary : Appearance.colors.colLayer4
+                        colText: hotspotTab.band === modelData.val ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnSurfaceVariant
+                        onClicked: hotspotTab.band = modelData.val
+                    }
                 }
             }
+
+            Item { Layout.fillHeight: true } // push content to the top
         }
     }
 
