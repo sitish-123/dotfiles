@@ -24,6 +24,16 @@ WindowDialog {
     Component.onCompleted: if (root.adapter && root.btEnabled) root.adapter.discovering = true
     Component.onDestruction: if (root.adapter) root.adapter.discovering = false
 
+    // Auto-stop discovery after a window so the scan spinner doesn't run forever while
+    // the dialog is open (paired/known devices show instantly regardless; the scan
+    // button re-arms it). Restarts whenever discovering is toggled back on.
+    Timer {
+        interval: 30000
+        running: root.discovering
+        repeat: false
+        onTriggered: if (root.adapter) root.adapter.discovering = false
+    }
+
     RowLayout { // Title + power toggle
         Layout.fillWidth: true
         spacing: 8

@@ -23,6 +23,16 @@ Item {
         Bluetooth.defaultAdapter.discovering = false;
     }
 
+    // Auto-stop discovery after a window so the scan spinner doesn't run forever while
+    // the panel is open (paired devices show instantly regardless; the scan button
+    // re-arms it). Restarts whenever discovering is toggled back on.
+    Timer {
+        interval: 30000
+        running: Bluetooth.defaultAdapter?.discovering ?? false
+        repeat: false
+        onTriggered: if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false
+    }
+
     WPanelPageColumn {
         anchors.fill: parent
 
