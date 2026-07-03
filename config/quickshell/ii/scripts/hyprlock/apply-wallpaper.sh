@@ -26,9 +26,18 @@ case "$wall" in "~/"*) wall="$HOME/${wall#\~/}";; esac
 [ -n "$wall" ] || { echo "no wallpaper set"; exit 0; }
 [ -f "$wall" ] || echo "warning: wallpaper '$wall' does not exist (writing anyway)"
 
-# Rewrite the path on every line marked with the tag, preserving indentation + tag.
 # Escape the replacement for sed (path may contain / and &).
 esc=$(printf '%s' "$wall" | sed -e 's/[&/\]/\\&/g')
-sed -i -E "s|^([[:space:]]*path[[:space:]]*=[[:space:]]*).*(# @lock:wallpaper.*)$|\1${esc}   \2|" "$HYPRLOCK_CONF"
+TAG="# @lock:wallpaper (auto-synced from Settings by scripts/hyprlock/apply-wallpaper.sh)"
+
+if grep -q '@lock:wallpaper' "$HYPRLOCK_CONF"; then
+    # Marked line(s) present: rewrite the value, keep the marker.
+    sed -i -E "s|^([[:space:]]*path[[:space:]]*=[[:space:]]*).*(#[[:space:]]*@lock:wallpaper.*)$|\1${esc}   \2|" "$HYPRLOCK_CONF"
+else
+    # Marker was stripped (the Settings lock-wallpaper picker rewrites `path =` without it).
+    # Re-tag every path line so auto-sync self-heals. hyprlock.conf only has the
+    # background + profile-image path lines, both of which should be the wallpaper.
+    sed -i -E "s|^([[:space:]]*path[[:space:]]*=[[:space:]]*).*$|\1${esc}   ${TAG}|" "$HYPRLOCK_CONF"
+fi
 
 echo "hyprlock wallpaper -> $wall"
