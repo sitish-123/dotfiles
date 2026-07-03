@@ -90,6 +90,25 @@ def read_cpu_total():
 PAGE = os.sysconf("SC_PAGE_SIZE") or 4096
 
 
+def app_name(pid, comm):
+    """Group multi-process apps under one name. Chromium-family browsers name every
+    child after the binary (so they already aggregate), but Firefox-family ones (Zen,
+    Firefox, LibreWolf) name each worker by ROLE — "Web Content", "Isolated Web Co",
+    "RDD Process", "Utility Process" — so the browser's usage scatters across a dozen
+    entries and never shows up. A space in comm is the tell of such a role-named
+    worker; attribute it to its executable instead (all Zen procs share zen-bin)."""
+    if " " not in comm:
+        return comm
+    try:
+        b = os.path.basename(os.readlink(f"/proc/{pid}/exe"))
+    except OSError:
+        return comm
+    for suf in ("-bin", "-wrapped", ".bin"):
+        if b.endswith(suf):
+            b = b[:-len(suf)]
+    return b or comm
+
+
 def mem_total_bytes():
     try:
         for line in open("/proc/meminfo"):
@@ -212,7 +231,8 @@ def main():
         dj = j1 - procs0[pid][1]
         if dj <= 0:
             continue
-        a = agg.setdefault(comm, {"name": comm, "jiff": 0, "rss": 0})
+        name = app_name(pid, comm)
+        a = agg.setdefault(name, {"name": name, "jiff": 0, "rss": 0})
         a["jiff"] += dj
         a["rss"] += rss1
 

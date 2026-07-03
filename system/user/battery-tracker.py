@@ -161,26 +161,48 @@ def screen_on(last):
         return last
 
 
+def app_name(pid, comm):
+    """Group multi-process apps under one name. Firefox-family browsers (Zen, Firefox)
+    name each worker by ROLE ("Web Content", "RDD Process"...) so a browser scatters
+    across a dozen entries and never shows up; Chromium names all children after the
+    binary. A space in comm marks such a role-named worker → attribute it to its
+    executable (all Zen procs share zen-bin)."""
+    if " " not in comm:
+        return comm
+    try:
+        b = os.path.basename(os.readlink(f"/proc/{pid}/exe"))
+    except OSError:
+        return comm
+    for suf in ("-bin", "-wrapped", ".bin"):
+        if b.endswith(suf):
+            b = b[:-len(suf)]
+    return b or comm
+
+
 def sample_procs_net():
-    """(top-proc string, rx bytes, tx bytes) — the annotation UPower can't give."""
+    """(top-proc string, rx bytes, tx bytes) — the annotation UPower can't give.
+    Grouped by app (see app_name) so Firefox-family browsers aggregate instead of
+    fragmenting across role-named workers. `pid,%cpu,comm` puts comm last since it can
+    contain spaces."""
     procs = ""
     try:
-        out = subprocess.run(["ps", "-eo", "comm,%cpu", "--sort=-%cpu",
+        out = subprocess.run(["ps", "-eo", "pid,%cpu,comm", "--sort=-%cpu",
                               "--no-headers"], capture_output=True, text=True, timeout=5)
-        parts = []
+        agg = {}
         for line in out.stdout.splitlines():
-            f = line.rsplit(None, 1)
-            if len(f) != 2:
+            f = line.split(None, 2)
+            if len(f) < 3:
                 continue
             try:
                 cpu = float(f[1])
             except ValueError:
                 continue
-            if cpu > 0.3:
-                parts.append(f"{f[0]}:{cpu:.1f}")
-            if len(parts) >= 5:
-                break
-        procs = ",".join(parts)
+            if cpu <= 0.3:
+                continue
+            name = app_name(f[0], f[2].strip())
+            agg[name] = agg.get(name, 0.0) + cpu
+        top = sorted(agg.items(), key=lambda kv: -kv[1])[:5]
+        procs = ",".join(f"{n}:{c:.1f}" for n, c in top)
     except Exception:
         pass
     rx = tx = 0
