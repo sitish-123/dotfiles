@@ -102,6 +102,21 @@ sync_user_unit "$DOT_ROOT/system/user/battery-tracker.py" "$HOME/.local/bin/batt
     "$DOT_ROOT/system/user/battery-tracker.service" battery-tracker.service
 rm -f "${XDG_RUNTIME_DIR:-/tmp}/qs_battery_usage.lock" 2>/dev/null || true
 
+# "What's using power" helper (user bin, no service) + its RAPL udev rule.
+if ! cmp -s "$DOT_ROOT/system/user/power-snapshot.py" "$HOME/.local/bin/power-snapshot" 2>/dev/null; then
+    install -Dm755 "$DOT_ROOT/system/user/power-snapshot.py" "$HOME/.local/bin/power-snapshot"
+    info "updated power-snapshot helper"
+fi
+# udev rules are world-readable (644), so compare without sudo — only touch /etc (and
+# prompt for sudo) when the RAPL rule actually changed, keeping routine updates sudo-free.
+RAPL_RULE="$DOT_ROOT/system/etc/udev/rules.d/99-rapl-readable.rules"
+if ! cmp -s "$RAPL_RULE" /etc/udev/rules.d/99-rapl-readable.rules 2>/dev/null; then
+    info "Updating RAPL udev rule"
+    sudo install -Dm644 "$RAPL_RULE" /etc/udev/rules.d/99-rapl-readable.rules
+    sudo udevadm control --reload-rules 2>/dev/null || true
+    sudo udevadm trigger --subsystem-match=powercap 2>/dev/null || true
+fi
+
 # Record the Hyprland version we just built against, so the next run detects the next bump.
 [ -n "$CUR_HVER" ] && { mkdir -p "$(dirname "$STATE")"; printf '%s\n' "$CUR_HVER" > "$STATE"; }
 

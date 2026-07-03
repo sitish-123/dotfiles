@@ -113,6 +113,20 @@ systemctl --user enable --now battery-tracker.service 2>/dev/null || \
     warn "couldn't enable battery-tracker (run inside your graphical session)"
 ok "Battery usage tracker installed & enabled"
 
+# "What's using power" helper: true per-process CPU power from RAPL + /proc deltas
+# (falls back to a battery-draw estimate where RAPL isn't readable). Invoked by the
+# Settings Battery page. See system/user/power-snapshot.py.
+install -Dm755 "$SYS/user/power-snapshot.py" "$HOME/.local/bin/power-snapshot"
+# Expose CPU energy counters (RAPL) read-only to 'wheel' so the helper can measure
+# real CPU power. energy_uj is root-only by default (PLATYPUS side-channel lockdown);
+# generic powercap match covers Intel *and* AMD — not chip-specific. Without this the
+# helper simply falls back to the battery estimate, so it's non-fatal if it fails.
+sudo install -Dm644 "$SYS/etc/udev/rules.d/99-rapl-readable.rules" \
+    /etc/udev/rules.d/99-rapl-readable.rules
+sudo udevadm control --reload-rules 2>/dev/null || true
+sudo udevadm trigger --subsystem-match=powercap 2>/dev/null || true
+ok "Power-by-app helper installed (RAPL readable to wheel)"
+
 # 4b-3) Wi-Fi hotspot helper -------------------------------------------------
 # The ii shell's Hotspot toggle (sidebar + settings) shells out to this root
 # helper, authorized passwordless for `wheel` by a polkit rule. The helper picks

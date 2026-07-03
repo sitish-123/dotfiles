@@ -9,31 +9,31 @@ ContentPage {
     id: root
     forceWidth: true
 
+    // "What's using power" data comes from the power-snapshot helper (installed at
+    // ~/.local/bin/power-snapshot by system-setup.sh). It reports TRUE per-process
+    // CPU power: it measures the CPU's own energy counter (RAPL, via /sys/class/
+    // powercap — works on Intel and AMD, not chip-specific) and attributes it by
+    // real per-interval /proc CPU deltas — not `ps %cpu` (a lifetime average) times
+    // total battery draw. Where RAPL isn't readable it falls back to the battery
+    // estimate. See system/user/power-snapshot.py.
     property var procModel: []
+    property string powerSource: ""     // "rapl" | "battery" | "cpu"
+    property real cpuWatts: 0           // measured CPU power (RAPL) when source=rapl
+    property real otherWatts: -1        // screen + GPU + radios + rest; -1 = unknown
+    property real totalWatts: 0         // whole-system draw (battery)
     Process {
-        id: procTop
-        command: ["bash", "-c",
-            "ps -eo comm,%cpu,%mem --sort=-%cpu --no-headers | head -n 30"]
+        id: powerTop
+        command: ["bash", "-c", "exec \"$HOME/.local/bin/power-snapshot\""]
         stdout: StdioCollector {
             onStreamFinished: {
-                const raw = text.trim().split("\n")
-                    .filter(l => l.trim().length > 0)
-                    .map(l => {
-                        const p = l.trim().split(/\s+/)
-                        const mem = parseFloat(p.pop()) || 0
-                        const cpu = parseFloat(p.pop()) || 0
-                        return { name: p.join(" "), cpu, mem }
-                    })
-                const agg = {}
-                for (const p of raw) {
-                    if (!agg[p.name]) agg[p.name] = { name: p.name, cpu: 0, mem: 0 }
-                    agg[p.name].cpu += p.cpu
-                    agg[p.name].mem += p.mem
-                }
-                root.procModel = Object.values(agg)
-                    .filter(p => p.cpu > 0.1 || p.mem > 0.3)
-                    .sort((a, b) => b.cpu - a.cpu)
-                    .slice(0, 8)
+                try {
+                    const d = JSON.parse(text)
+                    root.powerSource = d.source ?? ""
+                    root.cpuWatts = d.cpuWatts ?? 0
+                    root.otherWatts = (d.otherWatts ?? null) === null ? -1 : d.otherWatts
+                    root.totalWatts = d.totalWatts ?? 0
+                    root.procModel = d.procs ?? []
+                } catch (e) {}
             }
         }
     }
@@ -42,7 +42,7 @@ ContentPage {
         repeat: true
         interval: 4000
         triggeredOnStart: true
-        onTriggered: procTop.running = true
+        onTriggered: powerTop.running = true
     }
 
     function fmtDuration(sec) {
@@ -225,28 +225,48 @@ ContentPage {
         icon: "monitoring"
         title: Translation.tr("What's using power")
 
-        // Total CPU across all shown processes — used for share calculation
-        property real totalCpu: {
-            let t = 0
-            for (let i = 0; i < root.procModel.length; i++) t += root.procModel[i].cpu
-            return Math.max(t, 0.01)
+        // Denominator for a process's share of the bar: its power vs measured CPU
+        // power (RAPL), or its CPU vs one core when we only have CPU%.
+        function share(md) {
+            if (md.watts !== null && md.watts !== undefined && root.cpuWatts > 0)
+                return Math.min(1, md.watts / root.cpuWatts)
+            return Math.min(1, (md.cpu || 0) / 100)
         }
-        // Current draw in watts (positive = discharging)
-        property real drawWatts: Math.abs(Battery.energyRate)
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            StyledText {
-                font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colSubtext
-                text: `${powerSection.drawWatts.toFixed(1)} W total`
+            ColumnLayout {
+                spacing: 1
+                StyledText {
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.Medium
+                    color: Appearance.colors.colOnSurface
+                    text: root.totalWatts > 0 ? `${root.totalWatts.toFixed(1)} W total`
+                        : root.cpuWatts > 0 ? `${root.cpuWatts.toFixed(1)} W CPU` : "—"
+                }
+                StyledText {
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colSubtext
+                    opacity: 0.8
+                    text: {
+                        if (root.powerSource === "rapl")
+                            return root.otherWatts >= 0
+                                ? `CPU ${root.cpuWatts.toFixed(1)} W · screen + other ${root.otherWatts.toFixed(1)} W`
+                                : `CPU ${root.cpuWatts.toFixed(1)} W (measured)`
+                        if (root.powerSource === "battery")
+                            return Translation.tr("estimated from CPU share (RAPL unavailable)")
+                        if (root.powerSource === "cpu")
+                            return Translation.tr("CPU share only (no power sensor)")
+                        return ""
+                    }
+                }
             }
             Item { Layout.fillWidth: true }
             RippleButton {
                 implicitWidth: 30; implicitHeight: 30
                 buttonRadius: Appearance.rounding.full
-                downAction: () => { procTop.running = true }
+                downAction: () => { powerTop.running = true }
                 contentItem: MaterialSymbol {
                     anchors.centerIn: parent
                     text: "refresh"
@@ -263,8 +283,8 @@ ContentPage {
                 Layout.fillWidth: true
                 spacing: 3
 
-                readonly property real estWatts: (modelData.cpu / 100) * powerSection.drawWatts
-                readonly property real cpuShare: modelData.cpu / powerSection.totalCpu
+                readonly property bool hasWatts: modelData.watts !== null && modelData.watts !== undefined
+                readonly property real barShare: powerSection.share(modelData)
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -280,18 +300,19 @@ ContentPage {
                     StyledText {
                         font.pixelSize: Appearance.font.pixelSize.small
                         font.weight: Font.Medium
-                        color: cpuShare > 0.4 ? Appearance.colors.colError
-                            : cpuShare > 0.2 ? Appearance.colors.colTertiary
+                        color: barShare > 0.4 ? Appearance.colors.colError
+                            : barShare > 0.2 ? Appearance.colors.colTertiary
                             : Appearance.colors.colOnSurface
-                        text: `${Math.round(cpuShare * 100)}%`
+                        text: hasWatts ? `${modelData.watts.toFixed(2)} W`
+                            : `${(modelData.cpu || 0).toFixed(1)}%`
                     }
                 }
 
                 StyledProgressBar {
                     Layout.fillWidth: true
-                    value: Math.min(1, modelData.cpu / 100)
-                    highlightColor: modelData.cpu > 50 ? Appearance.colors.colError
-                        : modelData.cpu > 20 ? Appearance.colors.colTertiary
+                    value: barShare
+                    highlightColor: barShare > 0.5 ? Appearance.colors.colError
+                        : barShare > 0.2 ? Appearance.colors.colTertiary
                         : Appearance.colors.colPrimary
                 }
 
@@ -300,18 +321,13 @@ ContentPage {
                     StyledText {
                         font.pixelSize: Appearance.font.pixelSize.smallest
                         color: Appearance.colors.colSubtext
-                        text: `${modelData.cpu.toFixed(1)}% CPU`
-                    }
-                    StyledText {
-                        font.pixelSize: Appearance.font.pixelSize.smallest
-                        color: Appearance.colors.colSubtext
-                        text: `~${estWatts.toFixed(2)} W`
+                        text: `${(modelData.cpu || 0).toFixed(1)}% CPU`
                     }
                     StyledText {
                         font.pixelSize: Appearance.font.pixelSize.smallest
                         color: Appearance.colors.colSubtext
                         opacity: 0.6
-                        text: `${modelData.mem.toFixed(1)}% RAM`
+                        text: `${(modelData.mem || 0).toFixed(1)}% RAM`
                     }
                 }
             }
@@ -471,6 +487,16 @@ ContentPage {
             readonly property int _plotHeight: height - 20
             property int _hovIdx: -1
 
+            // Safe time-axis label for sample index i (empty until there's data, so
+            // the bindings never dereference an empty _ds).
+            function tlabel(i) {
+                if (!_ds || _ds.length < 2 || i < 0 || i >= _ds.length) return ""
+                const t = _ds[i][0] * 1000
+                return historySection.rangeDays === 1
+                    ? new Date(t).toLocaleTimeString(Qt.locale(), "HH:mm")
+                    : new Date(t).toLocaleDateString(Qt.locale(), "d MMM")
+            }
+
             // Horizontal grid lines at standard battery levels
             Item {
                 anchors { left: parent.left; right: yAxis.left; top: parent.top; rightMargin: 6 }
@@ -547,25 +573,19 @@ ContentPage {
                     width: parent.width / 3; horizontalAlignment: Text.AlignLeft
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     color: Appearance.colors.colSubtext; opacity: 0.5
-                    text: historySection.rangeDays === 1
-                        ? new Date(graphArea._ds[0][0] * 1000).toLocaleTimeString(Qt.locale(), "HH:mm")
-                        : new Date(graphArea._ds[0][0] * 1000).toLocaleDateString(Qt.locale(), "d MMM")
+                    text: graphArea.tlabel(0)
                 }
                 StyledText {
                     width: parent.width / 3; horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     color: Appearance.colors.colSubtext; opacity: 0.5
-                    text: historySection.rangeDays === 1
-                        ? new Date(graphArea._ds[Math.floor(graphArea._ds.length / 2)][0] * 1000).toLocaleTimeString(Qt.locale(), "HH:mm")
-                        : new Date(graphArea._ds[Math.floor(graphArea._ds.length / 2)][0] * 1000).toLocaleDateString(Qt.locale(), "d MMM")
+                    text: graphArea.tlabel(Math.floor(graphArea._ds.length / 2))
                 }
                 StyledText {
                     width: parent.width / 3; horizontalAlignment: Text.AlignRight
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     color: Appearance.colors.colSubtext; opacity: 0.5
-                    text: historySection.rangeDays === 1
-                        ? new Date(graphArea._ds[graphArea._ds.length - 1][0] * 1000).toLocaleTimeString(Qt.locale(), "HH:mm")
-                        : new Date(graphArea._ds[graphArea._ds.length - 1][0] * 1000).toLocaleDateString(Qt.locale(), "d MMM")
+                    text: graphArea.tlabel(graphArea._ds.length - 1)
                 }
             }
 

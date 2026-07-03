@@ -1,0 +1,17 @@
+# Make CPU energy counters (RAPL) readable by the 'wheel' group so the quickshell
+# ii "What's using power" panel can report TRUE per-app CPU power instead of a
+# CPU%-of-battery-draw estimate. See system/user/power-snapshot.py.
+#
+# energy_uj is root-only by default since the kernel locked it down against the
+# "PLATYPUS" power side-channel (untrusted local users timing energy to leak crypto
+# keys). On a single-user laptop where you already have sudo, exposing it read-only
+# to your own group is a non-issue; without this rule the panel just falls back to
+# the battery-draw estimate.
+#
+# SUBSYSTEM-generic on purpose: matches Intel RAPL *and* AMD (amd_energy) powercap
+# domains — not hardcoded to any chip. Every domain (package/core/uncore/dram) fires
+# its own powercap uevent, so we target that domain's own energy_uj by %k; %k paths
+# through the class symlink, which chgrp/chmod follow (recursing the symlinked /sys
+# tree with -R proved unreliable).
+ACTION=="add|change", SUBSYSTEM=="powercap", RUN+="/usr/bin/chgrp wheel /sys/class/powercap/%k/energy_uj"
+ACTION=="add|change", SUBSYSTEM=="powercap", RUN+="/usr/bin/chmod g+r /sys/class/powercap/%k/energy_uj"
