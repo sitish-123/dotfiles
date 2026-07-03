@@ -101,6 +101,12 @@ ApplicationWindow {
         },
         {
             section: Translation.tr("Customization"),
+            name: Translation.tr("Overview"),
+            icon: "grid_view",
+            component: "modules/settings/HyprtaskingConfig.qml"
+        },
+        {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Services"),
             icon: "settings",
             component: "modules/settings/ServicesConfig.qml"
