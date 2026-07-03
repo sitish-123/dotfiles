@@ -68,11 +68,23 @@ WindowDialog {
     // panels). A rescan rebuilds/reorders the model and would yank the input form
     // out from under them. It resumes the moment they're done.
     Timer {
-        interval: 6000
+        // Slow active rescan (finds new APs, ~1-8s). NM's environment changes slowly,
+        // so 15s matches native applets and lets the scan spinner rest between runs
+        // (a 6s interval re-fired before an 8s scan finished → spinner never stopped).
+        interval: 15000
         running: Network.wifiEnabled && !Network.userInteracting
             && !hiddenSection.open && !qrScanProc.running
         repeat: true
         onTriggered: Network.rescanWifi()
+    }
+    Timer {
+        // Cheap cached re-read (~25ms, no spinner) keeps the list + signal bars live
+        // between the slow rescans — same as the settings Wi-Fi page.
+        interval: 3000
+        running: Network.wifiEnabled && !Network.userInteracting
+            && !hiddenSection.open && !qrScanProc.running
+        repeat: true
+        onTriggered: Network.refreshNetworks()
     }
 
     RowLayout { // Title + Wi-Fi toggle

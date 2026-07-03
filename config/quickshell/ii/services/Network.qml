@@ -84,6 +84,12 @@ Singleton {
     }
 
     function rescanWifi(): void {
+        // Don't stack rescans: `nmcli ... --rescan yes` can take up to ~8s, so if a
+        // periodic caller re-fires before it finishes, wifiScanning would never go
+        // false and the spinner would never rest. Re-reading the cache is instant
+        // (getNetworks, ~25ms) and keeps the list live; the slow rescan only finds
+        // *new* APs, which is rare enough that overlapping calls are pure waste.
+        if (rescanProcess.running) return;
         wifiScanning = true;
         rescanProcess.running = true;
         getSavedProfiles.running = true;

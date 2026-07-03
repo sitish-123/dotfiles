@@ -25,7 +25,10 @@ ContentPage {
         function onWifiEnabledChanged() { if (Network.wifiEnabled) Network.rescanWifi(); }
     }
     Timer {
-        interval: 6000
+        // Slow active rescan (finds new APs, ~1-8s). NM's environment changes slowly,
+        // so 15s matches native applets; the cheap cached refresh below keeps the list
+        // and signal bars live in between without spinning.
+        interval: 15000
         running: Network.wifiEnabled
         repeat: true
         onTriggered: Network.rescanWifi()
