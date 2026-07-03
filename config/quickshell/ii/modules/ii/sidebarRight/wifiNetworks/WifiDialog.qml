@@ -341,6 +341,23 @@ WindowDialog {
                 }
             }
 
+            StyledText { // failure reason from the helper (e.g. DFS channel, dropped uplink)
+                visible: Network.hotspotError.length > 0 && !Network.hotspotActive && !Network.hotspotEnabling
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colError ?? Appearance.colors.colSubtext
+                wrapMode: Text.WordWrap
+                text: Network.hotspotError
+            }
+            StyledText { // explain the single-radio co-channel behaviour when on Wi-Fi
+                visible: Network.hotspotBandLocked
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                wrapMode: Text.WordWrap
+                text: Translation.tr("On Wi-Fi, the hotspot shares that connection on the same channel (Wi-Fi stays up). Only works on non-DFS channels — 2.4 GHz or 5 GHz ch36-48/149-161, not radar channels like 52.")
+            }
+
             Item { Layout.fillHeight: true } // push content to the top
         }
     }
