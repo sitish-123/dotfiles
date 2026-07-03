@@ -89,6 +89,7 @@ Item {
 
         Repeater {
             model: ScriptModel {
+                objectProp: "id"
                 values: root.output ? Audio.outputDevices : Audio.inputDevices
             }
             delegate: WChoiceButton {
@@ -148,6 +149,7 @@ Item {
 
         Repeater {
             model: ScriptModel {
+                objectProp: "id"
                 values: root.output ? Audio.outputAppNodes : Audio.inputAppNodes
             }
             delegate: VolumeEntry {

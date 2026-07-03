@@ -20,6 +20,7 @@ ColumnLayout {
         topMargin: 14
 
         model: ScriptModel {
+            objectProp: "id"
             values: root.appPwNodes
         }
         delegate: VolumeMixerEntry {

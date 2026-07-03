@@ -48,7 +48,9 @@ AppButton {
             {
                 text: Translation.tr("Settings"),
                 action: () => {
-                    Quickshell.execDetached(["qs", "-p", Quickshell.shellPath("settings.qml")]);
+                    // Strip crash-recovery env (see SidebarRightContent) so a
+                    // relaunched-after-crash shell doesn't duplicate itself here.
+                    Quickshell.execDetached(["env", "-u", "__QUICKSHELL_CRASH_DUMP_PID", "-u", "__QUICKSHELL_CRASH_INFO_FD", "-u", "__QUICKSHELL_CRASH_SIGNAL", "qs", "-p", Quickshell.shellPath("settings.qml")]);
                 }
             },
             {

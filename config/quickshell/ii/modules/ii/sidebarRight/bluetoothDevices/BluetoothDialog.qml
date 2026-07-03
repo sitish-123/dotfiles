@@ -121,6 +121,7 @@ WindowDialog {
         animateAppearance: false
 
         model: ScriptModel {
+            objectProp: "address"
             values: BluetoothStatus.friendlyDeviceList
         }
         delegate: BluetoothDeviceItem {

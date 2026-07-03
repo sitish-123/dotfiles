@@ -85,6 +85,7 @@ Item {
                     spacing: 4
 
                     model: ScriptModel {
+                        objectProp: "address"
                         values: BluetoothStatus.friendlyDeviceList
                     }
                     delegate: BluetoothDeviceItem {

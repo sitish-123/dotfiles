@@ -287,7 +287,9 @@ Item {
                 buttonIcon: "settings"
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false;
-                    Quickshell.execDetached(["qs", "-p", root.settingsQmlPath]);
+                    // Strip crash-recovery env so a shell relaunched after a crash
+                    // doesn't make `qs -p settings.qml` re-load shell.qml (duplicate bar).
+                    Quickshell.execDetached(["env", "-u", "__QUICKSHELL_CRASH_DUMP_PID", "-u", "__QUICKSHELL_CRASH_INFO_FD", "-u", "__QUICKSHELL_CRASH_SIGNAL", "qs", "-p", root.settingsQmlPath]);
                 }
                 StyledToolTip {
                     text: Translation.tr("Settings")

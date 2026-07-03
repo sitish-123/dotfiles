@@ -38,7 +38,7 @@ ContentPage {
 
         StyledText { Layout.topMargin: 4; text: Translation.tr("Device"); color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
         Repeater {
-            model: ScriptModel { values: Audio.outputDevices }
+            model: ScriptModel { objectProp: "id"; values: Audio.outputDevices }
             delegate: RowLayout {
                 required property var modelData
                 readonly property bool isDefault: modelData.id === (Pipewire.defaultAudioSink?.id ?? -1)
@@ -80,7 +80,7 @@ ContentPage {
 
         StyledText { Layout.topMargin: 4; text: Translation.tr("Device"); color: Appearance.colors.colSubtext; font.pixelSize: Appearance.font.pixelSize.smaller }
         Repeater {
-            model: ScriptModel { values: Audio.inputDevices }
+            model: ScriptModel { objectProp: "id"; values: Audio.inputDevices }
             delegate: RowLayout {
                 required property var modelData
                 readonly property bool isDefault: modelData.id === (Pipewire.defaultAudioSource?.id ?? -1)

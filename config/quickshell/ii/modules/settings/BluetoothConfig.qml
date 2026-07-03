@@ -63,7 +63,7 @@ ContentPage {
         }
 
         Repeater {
-            model: ScriptModel { values: BluetoothStatus.friendlyDeviceList }
+            model: ScriptModel { objectProp: "address"; values: BluetoothStatus.friendlyDeviceList }
             delegate: ColumnLayout {
                 id: drow
                 required property var modelData
