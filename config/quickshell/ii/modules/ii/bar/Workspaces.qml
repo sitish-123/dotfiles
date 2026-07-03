@@ -18,7 +18,13 @@ Item {
     property bool borderless: Config.options.bar.borderless
     readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.QsWindow.window?.screen)
     readonly property Toplevel activeWindow: ToplevelManager.activeToplevel
-    readonly property int effectiveActiveWorkspaceId: monitor?.activeWorkspace?.id ?? 1
+    // Hold the last REAL workspace id. `monitor?.activeWorkspace` transiently goes null
+    // during monitor hotplug / shell reload events; defaulting straight to 1 made the
+    // active pill snap to workspace 1 and slide back — one of the "random" indicator
+    // glitches. Latching the last valid id keeps the pill put through those blips.
+    readonly property int rawActiveWorkspaceId: monitor?.activeWorkspace?.id ?? -1
+    property int effectiveActiveWorkspaceId: 1
+    onRawActiveWorkspaceIdChanged: if (rawActiveWorkspaceId > 0) effectiveActiveWorkspaceId = rawActiveWorkspaceId
     
     readonly property int workspacesShown: Config.options.bar.workspaces.shown
     readonly property int workspaceGroup: Math.floor((effectiveActiveWorkspaceId - 1) / root.workspacesShown)
@@ -64,7 +70,10 @@ Item {
     }
 
     // Occupied workspace updates
-    Component.onCompleted: updateWorkspaceOccupied()
+    Component.onCompleted: {
+        if (rawActiveWorkspaceId > 0) effectiveActiveWorkspaceId = rawActiveWorkspaceId;
+        updateWorkspaceOccupied();
+    }
     Connections {
         target: Hyprland.workspaces
         function onValuesChanged() {
