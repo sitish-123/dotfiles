@@ -23,6 +23,22 @@ _LEGACY_SO=(
 
 notify() { command -v notify-send >/dev/null 2>&1 && notify-send -t 2000 "$1" "$2" 2>/dev/null || true; }
 
+# `hyprctl reload` re-applies the monitor config, which resets the monitor's active
+# workspace (jumps you to another workspace). Save the current workspace and restore
+# it after the reload so config changes don't yank you away.
+reload_keep_ws() {
+    local ws
+    ws="$(hyprctl activeworkspace 2>/dev/null | grep -oE 'ID -?[0-9]+' | awk '{print $2}' | head -1)"
+    hyprctl reload >/dev/null 2>&1
+    # Restore via `hyprctl eval hl.dispatch(...)` — this is a Lua-config Hyprland, where
+    # `hyprctl dispatch workspace N` is (mis)parsed as Lua and errors. Only restore normal
+    # (positive) workspaces; skip special/scratchpad. Short settle so the reset lands first.
+    if [ -n "$ws" ] && [ "$ws" -gt 0 ] 2>/dev/null; then
+        sleep 0.4
+        hyprctl eval "hl.dispatch(hl.dsp.focus({workspace = $ws}))" >/dev/null 2>&1
+    fi
+}
+
 unload_all() {
   for so in "$FORK_SO" "${_LEGACY_SO[@]}"; do
     hyprctl plugin unload "$so" >/dev/null 2>&1 || true
@@ -38,14 +54,14 @@ case "${1:-}" in
       # trigger opens the same configured overview.
       unload_all; sleep 0.3
       hyprctl plugin load "$FORK_SO" >/dev/null 2>&1
-      hyprctl reload >/dev/null 2>&1
+      reload_keep_ws
       notify "Overview" "hyprtasking (adaptive grid)"
       ;;
 
   off|none|disable)
       echo none > "$STATE"
       unload_all
-      hyprctl reload >/dev/null 2>&1
+      reload_keep_ws
       notify "Overview" "disabled"
       ;;
 
@@ -67,7 +83,7 @@ case "${1:-}" in
       cur="$(cat "$STATE" 2>/dev/null || echo hyprtasking)"
       [ "$cur" = none ] && exit 0
       [ -f "$FORK_SO" ] && hyprctl plugin load "$FORK_SO" >/dev/null 2>&1
-      hyprctl reload >/dev/null 2>&1
+      reload_keep_ws
       ;;
 
   *) echo "usage: overview-switch.sh <hyprtasking|off|toggle|restore>"; exit 1 ;;
