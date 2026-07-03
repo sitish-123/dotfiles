@@ -45,7 +45,7 @@ ContentPage {
     })
     readonly property var actionOptions: {
         const keys = Object.keys(root.actionMeta);
-        return keys.map(k => ({ value: k, displayName: root.actionMeta[k].label }));
+        return keys.map(k => ({ value: k, displayName: root.actionMeta[k].label, icon: "" }));
     }
     readonly property var sectionOrder: ["Apps", "Shell", "Media", "Utilities", "Window", "Workspaces", "Screen", "Session", "Custom"]
     property var collapsed: ({})
