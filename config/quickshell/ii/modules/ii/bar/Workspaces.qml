@@ -25,9 +25,21 @@ Item {
     readonly property int rawActiveWorkspaceId: monitor?.activeWorkspace?.id ?? -1
     property int effectiveActiveWorkspaceId: 1
     onRawActiveWorkspaceIdChanged: if (rawActiveWorkspaceId > 0) effectiveActiveWorkspaceId = rawActiveWorkspaceId
+    // `monitor` (Hyprland.monitorFor(screen)) is rebound on monitor hotplug / shell reload.
+    // The latch above only advances on a raw *change*, so if it rebinds back to a valid
+    // monitor without the raw id itself changing, a stale latched id would stick. Re-sync
+    // whenever the monitor object identity changes so the pill recovers after a dock/reload.
+    onMonitorChanged: if (rawActiveWorkspaceId > 0) effectiveActiveWorkspaceId = rawActiveWorkspaceId
     
     readonly property int workspacesShown: Config.options.bar.workspaces.shown
     readonly property int workspaceGroup: Math.floor((effectiveActiveWorkspaceId - 1) / root.workspacesShown)
+    // Global id of the first workspace in the current group. The occupancy-background
+    // rectangles compare the active workspace against per-cell ids; those ids are global
+    // (workspaceGroupBase + localIndex + 1), NOT the bare 0-based Repeater index. Without
+    // this offset the "hide the highlight under the active pill" logic silently misfires
+    // for every workspace past the first group (id > shown), leaving wrong occupancy
+    // highlights + corner rounding — a chronic source of the bar looking "mangled".
+    readonly property int workspaceGroupBase: workspaceGroup * root.workspacesShown
     property list<bool> workspaceOccupied: []
     property int widgetPadding: 4
     property int workspaceButtonWidth: 26
@@ -132,8 +144,8 @@ Item {
                 implicitWidth: workspaceButtonWidth
                 implicitHeight: workspaceButtonWidth
                 radius: (width / 2)
-                property var previousOccupied: (workspaceOccupied[index-1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index))
-                property var rightOccupied: (workspaceOccupied[index+1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index+2))
+                property var previousOccupied: (workspaceOccupied[index-1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === root.workspaceGroupBase + index))
+                property var rightOccupied: (workspaceOccupied[index+1] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === root.workspaceGroupBase + index + 2))
                 property var radiusPrev: previousOccupied ? 0 : (width / 2)
                 property var radiusNext: rightOccupied ? 0 : (width / 2)
 
@@ -143,7 +155,7 @@ Item {
                 bottomRightRadius: radiusNext
                 
                 color: ColorUtils.transparentize(Appearance.m3colors.m3secondaryContainer, 0.4)
-                opacity: (workspaceOccupied[index] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === index+1)) ? 1 : 0
+                opacity: (workspaceOccupied[index] && !(!activeWindow?.activated && root.effectiveActiveWorkspaceId === root.workspaceGroupBase + index + 1)) ? 1 : 0
 
                 Behavior on opacity {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)

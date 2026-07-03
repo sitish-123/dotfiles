@@ -157,7 +157,19 @@ Singleton {
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
-                root.windowList = JSON.parse(clientsCollector.text)
+                // Guard the parse: `hyprctl clients -j` can return empty/partial output
+                // during reload/load spikes. An unguarded throw abandoned the update and
+                // left windowList + biggestWindowByWorkspace stale INDEFINITELY (the main
+                // "app icons disagree and stay wrong" desync). On failure keep the last good
+                // data and reschedule so it self-heals instead of sticking.
+                let parsed;
+                try { parsed = JSON.parse(clientsCollector.text); }
+                catch (e) {
+                    console.warn("[HyprlandData] clients parse failed, retrying:", e);
+                    root._pendingWindows = true; updateDebounce.restart();
+                    return;
+                }
+                root.windowList = parsed;
                 let tempWinByAddress = {};
                 for (var i = 0; i < root.windowList.length; ++i) {
                     var win = root.windowList[i];
@@ -188,7 +200,8 @@ Singleton {
         stdout: StdioCollector {
             id: monitorsCollector
             onStreamFinished: {
-                root.monitors = JSON.parse(monitorsCollector.text);
+                try { root.monitors = JSON.parse(monitorsCollector.text); }
+                catch (e) { console.warn("[HyprlandData] monitors parse failed:", e); }
             }
         }
     }
@@ -199,7 +212,8 @@ Singleton {
         stdout: StdioCollector {
             id: layersCollector
             onStreamFinished: {
-                root.layers = JSON.parse(layersCollector.text);
+                try { root.layers = JSON.parse(layersCollector.text); }
+                catch (e) { console.warn("[HyprlandData] layers parse failed:", e); }
             }
         }
     }
@@ -210,7 +224,9 @@ Singleton {
         stdout: StdioCollector {
             id: workspacesCollector
             onStreamFinished: {
-                var rawWorkspaces = JSON.parse(workspacesCollector.text);
+                let rawWorkspaces;
+                try { rawWorkspaces = JSON.parse(workspacesCollector.text); }
+                catch (e) { console.warn("[HyprlandData] workspaces parse failed:", e); return; }
                 // Filter out invalid workspace ids (e.g. lock-screen temp workspace 2147483647 - N)
                 root.workspaces = rawWorkspaces.filter(ws => ws.id >= 1 && ws.id <= 100);
                 let tempWorkspaceById = {};
@@ -230,7 +246,8 @@ Singleton {
         stdout: StdioCollector {
             id: activeWorkspaceCollector
             onStreamFinished: {
-                root.activeWorkspace = JSON.parse(activeWorkspaceCollector.text);
+                try { root.activeWorkspace = JSON.parse(activeWorkspaceCollector.text); }
+                catch (e) { console.warn("[HyprlandData] activeworkspace parse failed:", e); }
             }
         }
     }

@@ -14,7 +14,11 @@ Item {
 
     property string activeWindowAddress: `0x${activeWindow?.HyprlandToplevel?.address}`
     property bool focusingThisMonitor: HyprlandData.activeWorkspace?.monitor == monitor?.name
-    property var biggestWindow: HyprlandData.biggestWindowForWorkspace(HyprlandData.monitors[root.monitor?.id]?.activeWorkspace.id)
+    // HyprlandData.monitors is the raw `hyprctl monitors -j` array, ordered by output
+    // order — NOT indexable by monitor id (ids go non-contiguous after unplug/replug).
+    // Match by id like OverviewWidget does, else this reads the wrong monitor's workspace.
+    property var thisMonitorData: HyprlandData.monitors.find(m => m.id === root.monitor?.id)
+    property var biggestWindow: HyprlandData.biggestWindowForWorkspace(thisMonitorData?.activeWorkspace?.id)
 
     implicitWidth: colLayout.implicitWidth
 
