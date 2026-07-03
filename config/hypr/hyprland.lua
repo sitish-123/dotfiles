@@ -57,6 +57,13 @@ if is_file_exists(HOME .. "/.config/hypr/hyprland/hyprtasking.lua") then
     require("hyprland.hyprtasking")
 end
 
+-- Window Manager settings (GUI-managed input + appearance). Apply logic is tracked in
+-- hyprland/wm.lua; it deep-merges the user/GUI data from custom/wm.lua over its defaults.
+-- Sourced after general.lua so the GUI-managed subset wins.
+if is_file_exists(HOME .. "/.config/hypr/hyprland/wm.lua") then
+    require("hyprland.wm")
+end
+
 -- nwg-displays support --
 if is_file_exists(HOME .. "/.config/hypr/workspaces.lua") then
     require("workspaces")

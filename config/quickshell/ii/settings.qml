@@ -101,6 +101,12 @@ ApplicationWindow {
         },
         {
             section: Translation.tr("Customization"),
+            name: Translation.tr("Window Manager"),
+            icon: "dashboard",
+            component: "modules/settings/WindowManagerConfig.qml"
+        },
+        {
+            section: Translation.tr("Customization"),
             name: Translation.tr("Overview"),
             icon: "grid_view",
             component: "modules/settings/HyprtaskingConfig.qml"
