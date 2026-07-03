@@ -95,12 +95,10 @@ Singleton {
     }
 
     function rescanWifi(): void {
-        // Don't stack rescans: `nmcli ... --rescan yes` can take up to ~8s, so if a
-        // periodic caller re-fires before it finishes, wifiScanning would never go
-        // false and the spinner would never rest. Re-reading the cache is instant
-        // (getNetworks, ~25ms) and keeps the list live; the slow rescan only finds
-        // *new* APs, which is rare enough that overlapping calls are pure waste.
-        if (rescanProcess.running) return;
+        // Guard re-entry: rescanProcess requests an ASYNC scan (returns in ~30ms) and
+        // NM keeps delivering APs for a few seconds afterwards (tracked by scanSettle);
+        // don't stack requests or the spinner would never rest.
+        if (rescanProcess.running || scanSettle.running) return;
         wifiScanning = true;
         rescanProcess.running = true;
         getSavedProfiles.running = true;
@@ -442,12 +440,27 @@ Singleton {
 
     Process {
         id: rescanProcess
-        command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"]
-        stdout: SplitParser {
-            onRead: {
-                wifiScanning = false;
-                getNetworks.running = true;
-            }
+        // ASYNC scan request: `dev wifi rescan` returns in ~30ms. The old blocking
+        // `list --rescan yes` waited ~6-8s for the scan AND starved concurrent
+        // `nmcli d w` reads inside NetworkManager — that's what made the cold Wi-Fi
+        // list take ~8s to paint. Here the cached list stays instantly readable;
+        // scanSettle re-polls it as NM discovers new APs, then clears the spinner.
+        command: ["nmcli", "dev", "wifi", "rescan"]
+        onExited: (code, status) => {
+            getNetworks.running = true;
+            scanSettle.restart();
+        }
+    }
+    // Drives the scanning spinner + list refresh after an async rescan request:
+    // NM finds APs over a few seconds, so poll a handful of times, then stop.
+    Timer {
+        id: scanSettle
+        interval: 1200
+        repeat: true
+        property int ticks: 0
+        onTriggered: {
+            getNetworks.running = true;
+            if (++ticks >= 4) { ticks = 0; stop(); root.wifiScanning = false; }
         }
     }
 
@@ -590,7 +603,12 @@ Singleton {
     Process {
         id: getNetworks
         running: true
-        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w"]
+        // `--rescan no` = read NM's cached AP list ONLY (~25ms). Plain `d w` lets
+        // nmcli decide, and when the cache is stale (>~30s, i.e. reopening settings
+        // after a while) it triggers a blocking scan and WAITS ~6s — that was the
+        // real cause of the slow/"Scanning…" empty list. Fresh APs come from the
+        // async `dev wifi rescan` (rescanProcess) + scanSettle re-polling this.
+        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "device", "wifi", "list", "--rescan", "no"]
         environment: ({
             LANG: "C",
             LC_ALL: "C"
