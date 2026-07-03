@@ -464,8 +464,13 @@ Singleton {
         }
     }
 
-    // Status update
-    function update() {
+    // Status update. `nmcli monitor` emits a BURST of lines during any transition
+    // (state + IP4 + connectivity), and each update() fans out to 6 nmcli/sh spawns —
+    // so one Wi-Fi handshake would trigger 60-120 spawns (×2 with Settings open).
+    // Coalesce the burst behind a short debounce (same pattern as HyprlandData).
+    Timer { id: updateDebounce; interval: 200; repeat: false; onTriggered: root.doUpdate() }
+    function update() { updateDebounce.restart(); }
+    function doUpdate() {
         updateConnectionType.startCheck();
         wifiStatusProcess.running = true
         updateNetworkName.running = true;
