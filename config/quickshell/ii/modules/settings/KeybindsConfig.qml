@@ -10,17 +10,16 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 // Keybinds editor. Reads the GUI data table in ~/.config/hypr/custom/keybinds.lua
-// (consumed by hyprland/userbinds.lua), presents every bind as an editable row grouped
-// into collapsible sections, and writes it back. Features: action-type dropdown, an
-// app/service picker for "Run command" binds, and live conflict detection (same combo
-// bound twice). Changes save to the file (debounced); "Apply" does a ws-preserving reload.
-ContentPage {
+// (consumed by hyprland/userbinds.lua), presents every bind as an editable two-line card
+// in a VIRTUALIZED ListView (only visible rows exist — 197 binds stay smooth) grouped by
+// sticky section headers. Action dropdown, app/service picker for command binds, and live
+// conflict detection. Saves to the file (debounced); "Apply" does a ws-preserving reload.
+Item {
     id: root
-    forceWidth: true
+    implicitWidth: 600
 
     readonly property string luaPath: Quickshell.env("HOME") + "/.config/hypr/custom/keybinds.lua"
     property bool loaded: false
-    // action metadata: value -> {label, needsArg, hint, appPicker}
     readonly property var actionMeta: ({
         "exec":            { label: "Run command",              arg: true,  hint: "shell command", app: true },
         "global":          { label: "Shell action (IPC)",       arg: true,  hint: "quickshell:…" },
@@ -43,12 +42,8 @@ ContentPage {
         "special":         { label: "Toggle special workspace", arg: true,  hint: "special" },
         "zoom":            { label: "Zoom screen",              arg: true,  hint: "+0.3 / -0.3" }
     })
-    readonly property var actionOptions: {
-        const keys = Object.keys(root.actionMeta);
-        return keys.map(k => ({ value: k, displayName: root.actionMeta[k].label, icon: "" }));
-    }
+    readonly property var actionOptions: Object.keys(root.actionMeta).map(k => ({ value: k, displayName: root.actionMeta[k].label, icon: "" }))
     readonly property var sectionOrder: ["Apps", "Shell", "Media", "Utilities", "Window", "Workspaces", "Screen", "Session", "Custom"]
-    property var collapsed: ({})
 
     ListModel { id: binds }
 
@@ -59,7 +54,6 @@ ContentPage {
         onLoaded: root.parseInto()
         onLoadFailed: (error) => { root.loaded = true; }
     }
-
     function unesc(s) { return String(s).replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r").replace(/\\"/g, '"').replace(/\\\\/g, "\\"); }
     function esc(s) { return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/\r/g, "\\r"); }
     function field(line, name) { const m = line.match(new RegExp(name + ' = "((?:[^"\\\\]|\\\\.)*)"')); return m ? root.unesc(m[1]) : ""; }
@@ -92,12 +86,7 @@ ContentPage {
 
     // ── conflicts ─────────────────────────────────────────────────────────────
     property var conflictKeys: ({})
-    function comboOf(i) { const b = binds.get(i); return (b.mods || "") + "|" + (b.key || ""); }
     function recomputeConflicts() {
-        // Group binds by combo. The common ii idiom binds the SAME combo to a quickshell
-        // `global` action + an `exec` fallback (guarded by `qsIsAlive ||`) — that's
-        // intentional, not a conflict. Flag a combo only when it's duplicated AND isn't
-        // that idiom: i.e. more than one non-fallback action lands on it.
         const groups = {};
         for (let i = 0; i < binds.count; i++) {
             const b = binds.get(i);
@@ -110,17 +99,15 @@ ContentPage {
             if (acts.length < 2) continue;
             const globals = acts.filter(a => a === "global").length;
             const others = acts.length - globals - acts.filter(a => a === "exec").length;
-            const benignFallback = (others === 0 && globals === 1); // 1 global + only exec(s)
-            if (!benignFallback) ck[c] = acts.length;
+            if (!(others === 0 && globals === 1)) ck[c] = acts.length; // ignore the global+exec fallback idiom
         }
         root.conflictKeys = ck;
     }
     readonly property int conflictCount: Object.keys(conflictKeys).length
 
     // ── persist ───────────────────────────────────────────────────────────────
-    Timer { id: saveDebounce; interval: 350; onTriggered: root.save() }
+    Timer { id: saveDebounce; interval: 400; onTriggered: root.save() }
     function scheduleSave() { if (root.loaded) { root.recomputeConflicts(); saveDebounce.restart(); } }
-
     function save() {
         const FLAGS = ["locked", "repeating", "ignore_mods", "transparent", "release", "mouse", "non_consuming"];
         let body = "";
@@ -138,207 +125,172 @@ ContentPage {
             "-- Consumed by hyprland/userbinds.lua. Each entry is one keybind.\n" +
             "return {\n    binds = {\n" + body + "    },\n}\n");
     }
+    function applyReload() { Quickshell.execDetached(["bash", "-lc", "~/.config/hypr/custom/scripts/hypr-reload.sh 2>/dev/null || hyprctl reload"]); }
 
-    function applyReload() {
-        Quickshell.execDetached(["bash", "-lc", "~/.config/hypr/custom/scripts/hypr-reload.sh 2>/dev/null || hyprctl reload"]);
-    }
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 16
+        spacing: 10
 
-    // ── top bar ───────────────────────────────────────────────────────────────
-    ContentSection {
-        icon: "keyboard"
-        title: Translation.tr("Keybinds")
-
-        StyledText {
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            text: Translation.tr("Every shortcut is editable here. Changes save to custom/keybinds.lua; click Apply to reload Hyprland. Dynamic binds (group-aware workspace switching, zoom) keep working.")
-        }
-
+        // ── header ──────────────────────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            RippleButtonWithIcon {
-                materialIcon: "add"
-                mainText: Translation.tr("Add keybind")
-                onClicked: {
-                    binds.insert(0, { mods: "SUPER", key: "", action: "exec", arg: "", desc: "", section: "Custom",
-                        locked: false, repeating: false, ignore_mods: false, transparent: false, release: false, mouse: false, non_consuming: false });
-                    root.scheduleSave();
-                }
+            MaterialSymbol { text: "keyboard"; iconSize: 24; color: Appearance.colors.colOnSecondaryContainer }
+            StyledText {
+                text: Translation.tr("Keybinds")
+                font.pixelSize: Appearance.font.pixelSize.larger
+                font.weight: Font.Medium
+                color: Appearance.colors.colOnSecondaryContainer
             }
             Item { Layout.fillWidth: true }
             StyledText {
                 visible: root.conflictCount > 0
                 color: Appearance.m3colors.m3error
                 font.pixelSize: Appearance.font.pixelSize.smaller
-                text: "⚠ " + root.conflictCount + " " + Translation.tr("conflicting combo(s)")
+                text: "⚠ " + root.conflictCount + " " + Translation.tr("conflict(s)")
+            }
+            RippleButtonWithIcon {
+                materialIcon: "add"
+                mainText: Translation.tr("Add")
+                onClicked: {
+                    binds.insert(0, { mods: "SUPER", key: "", action: "exec", arg: "", desc: "", section: "Custom",
+                        locked: false, repeating: false, ignore_mods: false, transparent: false, release: false, mouse: false, non_consuming: false });
+                    root.scheduleSave();
+                    bindList.positionViewAtBeginning();
+                }
             }
             RippleButtonWithIcon {
                 materialIcon: "refresh"
-                mainText: Translation.tr("Apply (reload)")
+                mainText: Translation.tr("Apply")
                 onClicked: { saveDebounce.stop(); root.save(); root.applyReload(); }
             }
         }
-    }
+        StyledText {
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            text: Translation.tr("Every shortcut is editable. Changes save to custom/keybinds.lua; Apply reloads Hyprland. Dynamic binds (group-aware workspace switching, zoom) keep working.")
+        }
 
-    // ── the list (flat, with inline section headers + collapse) ─────────────────
-    ContentSection {
-        Layout.fillWidth: true
-
-        Repeater {
+        // ── virtualized list ────────────────────────────────────────────────
+        ListView {
+            id: bindList
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
             model: binds
-            delegate: ColumnLayout {
-                id: rowWrap
+            spacing: 4
+            cacheBuffer: 400
+            reuseItems: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            section.property: "section"
+            section.criteria: ViewSection.FullString
+            section.delegate: Rectangle {
+                required property string section
+                width: bindList.width
+                height: 30
+                color: Appearance.m3colors.m3surfaceContainerHigh
+                radius: Appearance.rounding.small
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    text: parent.section
+                    font.pixelSize: Appearance.font.pixelSize.normal
+                    font.weight: Font.Medium
+                    color: Appearance.colors.colOnLayer1
+                }
+            }
+
+            delegate: Rectangle {
+                id: rowItem
                 required property int index
                 required property string mods
                 required property string key
                 required property string action
                 required property string arg
                 required property string desc
-                required property string section
                 required property bool locked
                 required property bool repeating
-                Layout.fillWidth: true
-                spacing: 0
-
-                readonly property bool sectionStart: index === 0 || binds.get(index - 1).section !== section
-                readonly property bool sectionCollapsed: root.collapsed[section] === true
+                width: bindList.width
+                height: rowCol.implicitHeight + 10
+                radius: Appearance.rounding.small
                 readonly property bool conflict: root.conflictKeys[(mods || "") + "|" + (key || "")] !== undefined
                 readonly property var meta: root.actionMeta[action] || { arg: false }
+                color: conflict ? ColorUtils.transparentize(Appearance.m3colors.m3error, 0.85) : "transparent"
 
-                // section header
-                Rectangle {
-                    visible: rowWrap.sectionStart
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: visible ? 34 : 0
-                    color: "transparent"
+                ColumnLayout {
+                    id: rowCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    spacing: 3
+
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 2
-                        MaterialSymbol {
-                            text: rowWrap.sectionCollapsed ? "chevron_right" : "expand_more"
-                            iconSize: 22; color: Appearance.colors.colOnLayer1
+                        Layout.fillWidth: true
+                        spacing: 5
+                        MaterialSymbol { visible: rowItem.conflict; text: "warning"; iconSize: 18; color: Appearance.m3colors.m3error }
+                        MaterialTextField {
+                            Layout.preferredWidth: 145
+                            text: rowItem.mods; placeholderText: Translation.tr("mods"); wrapMode: Text.NoWrap
+                            onEditingFinished: { binds.setProperty(rowItem.index, "mods", text); root.scheduleSave(); }
                         }
-                        StyledText {
-                            text: rowWrap.section
-                            font.pixelSize: Appearance.font.pixelSize.normal
-                            font.weight: Font.Medium
-                            color: Appearance.colors.colOnLayer1
+                        StyledText { text: "+"; color: Appearance.colors.colSubtext }
+                        MaterialTextField {
+                            Layout.preferredWidth: 100
+                            text: rowItem.key; placeholderText: Translation.tr("key"); wrapMode: Text.NoWrap
+                            onEditingFinished: { binds.setProperty(rowItem.index, "key", text); root.scheduleSave(); }
+                        }
+                        StyledComboBox {
+                            Layout.preferredWidth: 185
+                            model: root.actionOptions
+                            textRole: "displayName"
+                            currentIndex: Math.max(0, root.actionOptions.findIndex(o => o.value === rowItem.action))
+                            onActivated: (i) => { binds.setProperty(rowItem.index, "action", root.actionOptions[i].value); root.scheduleSave(); }
                         }
                         Item { Layout.fillWidth: true }
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            const c = Object.assign({}, root.collapsed);
-                            c[rowWrap.section] = !(c[rowWrap.section] === true);
-                            root.collapsed = c;
+                        RippleButton {
+                            implicitWidth: 34; implicitHeight: 34; buttonRadius: Appearance.rounding.full
+                            onClicked: flagsPopup.openFor(rowItem.index)
+                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "tune"; iconSize: 18
+                                color: (rowItem.locked || rowItem.repeating) ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1 }
+                            StyledToolTip { text: Translation.tr("Flags (locked, repeating, …)") }
+                        }
+                        RippleButton {
+                            implicitWidth: 34; implicitHeight: 34; buttonRadius: Appearance.rounding.full
+                            onClicked: { binds.remove(rowItem.index); root.scheduleSave(); }
+                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "delete"; iconSize: 18 }
+                            StyledToolTip { text: Translation.tr("Remove") }
                         }
                     }
-                }
-
-                // bind row
-                Rectangle {
-                    Layout.fillWidth: true
-                    visible: !rowWrap.sectionCollapsed
-                    Layout.preferredHeight: visible ? rowLayout.implicitHeight + 10 : 0
-                    radius: Appearance.rounding.small
-                    color: rowWrap.conflict ? ColorUtils.transparentize(Appearance.m3colors.m3error, 0.85) : "transparent"
-
-                    ColumnLayout {
-                        id: rowLayout
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 6
-                        spacing: 3
-
-                        // line 1 — key combo + action + controls
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 5
-                            MaterialSymbol {
-                                visible: rowWrap.conflict
-                                text: "warning"; iconSize: 18; color: Appearance.m3colors.m3error
-                            }
-                            MaterialTextField {
-                                Layout.preferredWidth: 145
-                                text: rowWrap.mods
-                                placeholderText: Translation.tr("mods")
-                                wrapMode: Text.NoWrap
-                                onEditingFinished: { binds.setProperty(rowWrap.index, "mods", text); root.scheduleSave(); }
-                            }
-                            StyledText { text: "+"; color: Appearance.colors.colSubtext }
-                            MaterialTextField {
-                                Layout.preferredWidth: 100
-                                text: rowWrap.key
-                                placeholderText: Translation.tr("key")
-                                wrapMode: Text.NoWrap
-                                onEditingFinished: { binds.setProperty(rowWrap.index, "key", text); root.scheduleSave(); }
-                            }
-                            StyledComboBox {
-                                Layout.preferredWidth: 185
-                                model: root.actionOptions
-                                textRole: "displayName"
-                                currentIndex: Math.max(0, root.actionOptions.findIndex(o => o.value === rowWrap.action))
-                                onActivated: (i) => { binds.setProperty(rowWrap.index, "action", root.actionOptions[i].value); root.scheduleSave(); }
-                            }
-                            Item { Layout.fillWidth: true }
-                            StyledText {
-                                visible: rowWrap.conflict
-                                text: Translation.tr("conflict")
-                                color: Appearance.m3colors.m3error
-                                font.pixelSize: Appearance.font.pixelSize.smaller
-                            }
-                            RippleButton {
-                                implicitWidth: 34; implicitHeight: 34
-                                buttonRadius: Appearance.rounding.full
-                                onClicked: flagsPopup.openFor(rowWrap.index)
-                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "tune"; iconSize: 18
-                                    color: (rowWrap.locked || rowWrap.repeating) ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1 }
-                                StyledToolTip { text: Translation.tr("Flags (locked, repeating, …)") }
-                            }
-                            RippleButton {
-                                implicitWidth: 34; implicitHeight: 34
-                                buttonRadius: Appearance.rounding.full
-                                onClicked: { binds.remove(rowWrap.index); root.scheduleSave(); }
-                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "delete"; iconSize: 18 }
-                                StyledToolTip { text: Translation.tr("Remove") }
-                            }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 26
+                        spacing: 5
+                        RippleButton {
+                            visible: rowItem.meta.app === true
+                            implicitWidth: 34; implicitHeight: 34; buttonRadius: Appearance.rounding.full
+                            onClicked: { appPicker.targetIndex = rowItem.index; appPicker.open(); }
+                            contentItem: MaterialSymbol { anchors.centerIn: parent; text: "apps"; iconSize: 20 }
+                            StyledToolTip { text: Translation.tr("Pick an app") }
                         }
-                        // line 2 — argument (+ app picker) and description
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.leftMargin: 26
-                            spacing: 5
-                            RippleButton {
-                                visible: rowWrap.meta.app === true
-                                implicitWidth: 34; implicitHeight: 34
-                                buttonRadius: Appearance.rounding.full
-                                onClicked: { appPicker.targetIndex = rowWrap.index; appPicker.open(); }
-                                contentItem: MaterialSymbol { anchors.centerIn: parent; text: "apps"; iconSize: 20 }
-                                StyledToolTip { text: Translation.tr("Pick an app") }
-                            }
-                            MaterialTextField {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 2
-                                visible: rowWrap.meta.arg === true
-                                text: rowWrap.arg
-                                placeholderText: rowWrap.meta.hint || Translation.tr("argument")
-                                wrapMode: Text.NoWrap
-                                onEditingFinished: { binds.setProperty(rowWrap.index, "arg", text); root.scheduleSave(); }
-                            }
-                            MaterialTextField {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                text: rowWrap.desc
-                                placeholderText: Translation.tr("description")
-                                wrapMode: Text.NoWrap
-                                onEditingFinished: { binds.setProperty(rowWrap.index, "desc", text); root.scheduleSave(); }
-                            }
+                        MaterialTextField {
+                            Layout.fillWidth: true; Layout.preferredWidth: 2
+                            visible: rowItem.meta.arg === true
+                            text: rowItem.arg
+                            placeholderText: rowItem.meta.hint || Translation.tr("argument"); wrapMode: Text.NoWrap
+                            onEditingFinished: { binds.setProperty(rowItem.index, "arg", text); root.scheduleSave(); }
+                        }
+                        MaterialTextField {
+                            Layout.fillWidth: true; Layout.preferredWidth: 1
+                            text: rowItem.desc; placeholderText: Translation.tr("description"); wrapMode: Text.NoWrap
+                            onEditingFinished: { binds.setProperty(rowItem.index, "desc", text); root.scheduleSave(); }
                         }
                     }
                 }
@@ -381,11 +333,7 @@ ContentPage {
         background: Rectangle { color: Appearance.m3colors.m3surfaceContainerHigh; radius: Appearance.rounding.normal }
         contentItem: ColumnLayout {
             spacing: 8
-            MaterialTextField {
-                id: appSearchField
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Search apps…")
-            }
+            MaterialTextField { id: appSearchField; Layout.fillWidth: true; placeholderText: Translation.tr("Search apps…") }
             StyledListView {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 clip: true
