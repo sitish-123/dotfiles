@@ -106,6 +106,19 @@ ApplicationWindow {
             icon: "grid_view",
             component: "modules/settings/HyprtaskingConfig.qml"
         },
+        // ── Startup: session env & autostart ────────────────────────────────
+        {
+            section: Translation.tr("Startup"),
+            name: Translation.tr("Autostart"),
+            icon: "rocket_launch",
+            component: "modules/settings/AutostartConfig.qml"
+        },
+        {
+            section: Translation.tr("Startup"),
+            name: Translation.tr("Environment"),
+            icon: "terminal",
+            component: "modules/settings/EnvironmentConfig.qml"
+        },
         // ── Shell: quickshell internals ─────────────────────────────────────
         {
             section: Translation.tr("Shell"),

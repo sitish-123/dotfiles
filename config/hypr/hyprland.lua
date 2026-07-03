@@ -7,9 +7,9 @@ require("hyprland.services")
 
 -- Environment variables --
 require("hyprland.env")
-if is_file_exists(HOME .. "/.config/hypr/custom/env.lua") then
-    require("custom.env")
-end
+-- User env vars (GUI-managed): logic in hyprland/userenv.lua reads the data table in
+-- custom/env.lua and applies it after the shipped vars. pcall-guarded, safe if absent.
+require("hyprland.userenv")
 
 -- Default configurations --
 require("hyprland.execs")
@@ -25,6 +25,10 @@ end
 if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
     require("custom.execs")
 end
+-- User autostart (GUI-managed): logic in hyprland/autostart.lua runs the enabled
+-- commands from the data table in custom/autostart.lua. Separate from custom/execs.lua
+-- (critical session bringup) so the GUI never clobbers that. pcall-guarded.
+require("hyprland.autostart")
 -- General config: custom/general.lua is the complete replacement when present.
 -- On a fresh install with no custom/general.lua the shipped defaults load.
 if is_file_exists(HOME .. "/.config/hypr/custom/general.lua") then
