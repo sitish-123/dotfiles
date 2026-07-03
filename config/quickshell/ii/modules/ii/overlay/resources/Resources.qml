@@ -15,6 +15,19 @@ StyledOverlayWidget {
     id: root
     minimumWidth: 300
     minimumHeight: 200
+
+    // Tell ResourceUsage to accumulate history only while this overlay is showing —
+    // it's the sole consumer of the history arrays. Guarded so we never double-count.
+    property bool _historySubscribed: false
+    function _syncHistorySub() {
+        const want = root.visible;
+        if (want === _historySubscribed) return;
+        ResourceUsage.historySubscribers += want ? 1 : -1;
+        _historySubscribed = want;
+    }
+    onVisibleChanged: _syncHistorySub()
+    Component.onCompleted: _syncHistorySub()
+    Component.onDestruction: { if (_historySubscribed) ResourceUsage.historySubscribers--; }
     property list<var> resources: [
         {
             "icon": "planner_review",

@@ -31,6 +31,13 @@ Singleton {
     property list<real> memoryUsageHistory: []
     property list<real> swapUsageHistory: []
 
+    // The 60-element history arrays are ONLY consumed by the resources overlay; the
+    // bar/verticalBar pills and the popup show current values only. So we accumulate
+    // history (three per-tick array rebuilds) exclusively while something is watching —
+    // consumers bump this ref-count when visible. Current-value reads still run every
+    // tick for the always-visible pill.
+    property int historySubscribers: 0
+
     function kbToGbString(kb) {
         return (kb / (1024 * 1024)).toFixed(1) + " GB";
     }
@@ -92,7 +99,7 @@ Singleton {
                 previousCpuStats = { total, idle }
             }
 
-            root.updateHistories()
+            if (root.historySubscribers > 0) root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
