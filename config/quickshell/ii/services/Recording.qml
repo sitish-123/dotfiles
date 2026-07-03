@@ -5,9 +5,13 @@ import Quickshell.Io
 import QtQuick
 import qs.modules.common
 
-// Tracks gpu-screen-recorder state (recording / replay buffer / paused + elapsed)
-// by polling the process and the state files written by scripts/videos/record.sh.
-// Drives the on-screen RecordingIndicator and exposes control helpers.
+// Tracks gpu-screen-recorder state (recording / replay buffer / paused + elapsed).
+// EVENT-DRIVEN: scripts/videos/record.sh writes a one-line `state` file on every
+// transition (and "off" via its EXIT trap when the recorder exits); we watch it with
+// inotify. This used to spawn a bash process every 1-3s FOREVER (RecordingIndicator
+// lives in shell.qml, so it ran for the whole session even when nothing recorded).
+// Now: zero subprocesses while idle, a pure-JS elapsed counter while active, and a
+// low-frequency PID liveness check only as a safety net for a force-killed recorder.
 Singleton {
     id: root
 
@@ -18,6 +22,8 @@ Singleton {
     property double startEpoch: 0
     property int elapsed: 0         // seconds since start
     readonly property bool anyActive: active || replay
+
+    readonly property string stateDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/ii-recorder"
 
     function nowSec() { return Math.floor(Date.now() / 1000); }
     function fmt(s) {
@@ -30,41 +36,63 @@ Singleton {
     function toggleReplay(){ Quickshell.execDetached([Directories.recordScriptPath, "--replay"]); }
     function saveReplay()  { Quickshell.execDetached([Directories.recordScriptPath, "--save-replay"]); }
 
+    function applyState(text) {
+        const t = (text || "").trim();
+        const parts = t.split(/\s+/);
+        if (!t || parts[0] === "off") {
+            root.active = false; root.replay = false; root.paused = false;
+            root.scope = ""; root.startEpoch = 0; root.elapsed = 0;
+            return;
+        }
+        const mode = parts[0] || "record";
+        root.replay = (mode === "replay");
+        root.active = (mode !== "replay");
+        root.startEpoch = parseInt(parts[1]) || root.nowSec();
+        root.paused = (parts[2] === "1");
+        root.scope = parts[3] || "fullscreen";
+        root.elapsed = Math.max(0, root.nowSec() - root.startEpoch);
+    }
+
+    // Ensure the watch dir exists so the FileView can watch `state` before the first
+    // recording ever runs (record.sh also mkdir's it, but that's only when recording).
+    Process { id: ensureDir; running: true; command: ["mkdir", "-p", root.stateDir] }
+
+    FileView {
+        id: stateView
+        path: `${root.stateDir}/state`
+        watchChanges: true
+        onFileChanged: reloadTimer.restart()
+        onLoaded: root.applyState(stateView.text())
+        onLoadFailed: root.applyState("off")   // no file yet → nothing is recording
+    }
+    Timer { id: reloadTimer; interval: 80; repeat: false; onTriggered: stateView.reload() }
+
+    // Pure-JS elapsed counter — no subprocess. Only ticks while actively capturing.
+    Timer {
+        interval: 1000
+        running: root.anyActive && !root.paused
+        repeat: true
+        onTriggered: root.elapsed = Math.max(0, root.nowSec() - root.startEpoch)
+    }
+
+    // Safety net: if the recorder is SIGKILL'd, record.sh's EXIT trap can't run to
+    // write "off", so the state file would be stale. While we believe something is
+    // active, verify the PID twice a minute and clear if it's gone. Idle = no polling.
+    Timer {
+        interval: 30000
+        running: root.anyActive
+        repeat: true
+        onTriggered: livenessProc.running = true
+    }
     Process {
-        id: poll
+        id: livenessProc
         command: ["bash", "-c",
             'd="${XDG_RUNTIME_DIR:-/tmp}/ii-recorder"; p="$(cat "$d/pid" 2>/dev/null)"; ' +
-            'if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then ' +
-            '  printf "on %s %s %s %s" "$(cat "$d/mode" 2>/dev/null)" "$(cat "$d/started" 2>/dev/null)" "$([ -f "$d/paused" ] && echo 1 || echo 0)" "$(cat "$d/scope" 2>/dev/null)"; ' +
-            'else printf off; fi']
+            '[ -n "$p" ] && kill -0 "$p" 2>/dev/null && echo on || echo off']
         stdout: StdioCollector {
-            onStreamFinished: {
-                const parts = text.trim().split(/\s+/);
-                if (parts[0] !== "on") {
-                    root.active = false; root.replay = false; root.paused = false;
-                    root.scope = ""; root.startEpoch = 0; root.elapsed = 0;
-                    return;
-                }
-                const mode = parts[1] || "record";
-                root.replay = (mode === "replay");
-                root.active = (mode !== "replay");
-                root.startEpoch = parseInt(parts[2]) || root.nowSec();
-                root.paused = (parts[3] === "1");
-                root.scope = parts[4] || "fullscreen";
-                root.elapsed = Math.max(0, root.nowSec() - root.startEpoch);
-            }
+            onStreamFinished: { if (text.trim() === "off") root.applyState("off"); }
         }
     }
-    Timer {
-        // 1s while recording (the elapsed counter needs it); back off to 3s when idle —
-        // then we're only polling to notice a recording started, which isn't urgent.
-        interval: root.anyActive ? 1000 : 3000
-        running: true; repeat: true
-        onTriggered: {
-            if (root.anyActive && !root.paused)
-                root.elapsed = Math.max(0, root.nowSec() - root.startEpoch);
-            poll.running = true;
-        }
-    }
-    Component.onCompleted: poll.running = true
+
+    Component.onCompleted: stateView.reload()
 }

@@ -30,6 +30,7 @@ MODE_FILE="$STATE_DIR/mode"         # "record" | "replay"
 PAUSED_FILE="$STATE_DIR/paused"     # present while paused
 PIDFILE="$STATE_DIR/pid"            # PID of the running gpu-screen-recorder
 SCOPE_FILE="$STATE_DIR/scope"       # "fullscreen" | "region" | "replay" (drives the indicator)
+STATE_FILE="$STATE_DIR/state"       # consolidated one-liner the bar indicator watches
 mkdir -p "$STATE_DIR"
 
 notify() { notify-send -a 'Recorder' "$1" "${2:-}" & disown; }
@@ -40,7 +41,21 @@ focused_monitor() { hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focus
 # ("gpu-screen-reco"), so `pgrep -x gpu-screen-recorder` never matches.
 rec_pid() { cat "$PIDFILE" 2>/dev/null; }
 running() { local p; p="$(rec_pid)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
-cleanup_state() { rm -f "$STARTED_FILE" "$MODE_FILE" "$PAUSED_FILE" "$PIDFILE" "$SCOPE_FILE"; }
+cleanup_state() { rm -f "$STARTED_FILE" "$MODE_FILE" "$PAUSED_FILE" "$PIDFILE" "$SCOPE_FILE"; echo off > "$STATE_FILE"; }
+# Consolidated one-line state the bar indicator watches via inotify (no polling):
+# "<mode> <started> <paused> <scope>" while active, "off" otherwise. Written
+# atomically on every transition (start / pause / stop-via-cleanup).
+write_state() {
+    if running; then
+        local paused=0; [ -f "$PAUSED_FILE" ] && paused=1
+        printf '%s %s %s %s\n' "$(cat "$MODE_FILE" 2>/dev/null || echo record)" \
+            "$(cat "$STARTED_FILE" 2>/dev/null)" "$paused" \
+            "$(cat "$SCOPE_FILE" 2>/dev/null || echo fullscreen)" > "$STATE_FILE.tmp"
+    else
+        echo off > "$STATE_FILE.tmp"
+    fi
+    mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+}
 
 if ! command -v "$REC_BIN" >/dev/null; then
     notify "Recorder unavailable" "Install gpu-screen-recorder (see packages.txt)"
@@ -75,6 +90,7 @@ if running; then
             kill -USR2 "$PID" 2>/dev/null
             if [ -f "$PAUSED_FILE" ]; then rm -f "$PAUSED_FILE"; notify "Recording resumed";
             else touch "$PAUSED_FILE"; notify "Recording paused"; fi
+            write_state
             ;;
         save-replay)
             if [ "$(cat "$MODE_FILE" 2>/dev/null)" = "replay" ]; then
@@ -175,5 +191,6 @@ else
 fi
 REC_PID=$!
 echo "$REC_PID" > "$PIDFILE"
+write_state
 wait "$REC_PID"
 # EXIT trap clears the indicator state once the recorder exits
