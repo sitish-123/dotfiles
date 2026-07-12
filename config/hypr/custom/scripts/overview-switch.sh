@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Overview control for Hyprland. We use ONE overview plugin: our hyprtasking fork.
-# custom/general.lua reads the state file and wires the 4-finger-up gesture.
+# hyprland/hyprtasking.lua reads the state file + applies the fork config; the 4-finger
+# gesture is handled inside the plugin itself (not general.lua).
 #
 #   overview-switch.sh hyprtasking   # load the fork overview (default)
 #   overview-switch.sh off           # no overview plugin
@@ -49,11 +50,16 @@ case "${1:-}" in
   hyprtasking|tasking|grid|fork|dev|on)
       if [ ! -f "$FORK_SO" ]; then notify "Overview" "Fork not built — run ~/Projects/hyprtasking/dev.sh build"; exit 1; fi
       echo hyprtasking > "$STATE"
-      # All fork settings (adaptive/blur_bg/rounding/...) live in custom/general.lua and
-      # apply on the reload below — no runtime eval, so they survive reloads and every
-      # trigger opens the same configured overview.
-      unload_all; sleep 0.3
-      hyprctl plugin load "$FORK_SO" >/dev/null 2>&1
+      # All fork settings (adaptive/blur_bg/rounding/...) live in hyprland/hyprtasking.lua
+      # and apply on the reload below. Unload only the LEGACY plugins — NOT the fork:
+      # unloading the fork while it's loaded (possibly mid-frame / overview open) is the
+      # documented crash race that the 'restore' path is written to avoid. Load the fork
+      # only if it isn't already loaded (an in-place reload can't reliably hot-swap a new
+      # build anyway — that needs a relog).
+      for so in "${_LEGACY_SO[@]}"; do hyprctl plugin unload "$so" >/dev/null 2>&1 || true; done
+      if ! hyprctl plugin list 2>/dev/null | grep -qi hyprtasking; then
+          hyprctl plugin load "$FORK_SO" >/dev/null 2>&1
+      fi
       reload_keep_ws
       notify "Overview" "hyprtasking (adaptive grid)"
       ;;
