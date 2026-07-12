@@ -110,6 +110,15 @@ def read_power():
     status = read_str(batt / "status") if batt else None
     pct = read_int(batt / "capacity") if batt else None
 
+    # Right after resume-from-suspend/hibernate (and occasionally at boot) the EC can
+    # briefly report a garbage capacity — a raw register value like 1693139 — while
+    # power_now is still ~0. A percentage is 0..100 by definition, so treat anything
+    # outside that as an unsettled read and drop it (pct=None → the caller skips the
+    # history sample and the 'full' check). This is the pct analogue of SUSPEND_CAP,
+    # which already guards screen-on time across a suspend gap.
+    if pct is not None and not (0 <= pct <= 100):
+        pct = None
+
     mains_online = any(read_int(m / "online") == 1 for m in mains)
 
     if status == "Discharging":

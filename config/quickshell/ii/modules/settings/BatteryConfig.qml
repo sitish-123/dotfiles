@@ -517,8 +517,12 @@ ContentPage {
                 id: historyGraph
                 anchors { left: parent.left; right: yAxis.left; top: parent.top; rightMargin: 6 }
                 height: graphArea._plotHeight
+                // Clamp each plotted point to [0,1] so a stray out-of-range sample
+                // (e.g. a garbage capacity read at resume) can never shoot the line
+                // off-graph. The daemon already drops such reads at the source; this
+                // is defense-in-depth, matching the live-level indicator below.
                 values: graphArea._ds.length < 2 ? [0.5, 0.5] :
-                    graphArea._ds.map(s => (s[1] - graphArea._lo) / graphArea._range)
+                    graphArea._ds.map(s => Math.max(0, Math.min(1, (s[1] - graphArea._lo) / graphArea._range)))
                 color: Appearance.colors.colPrimary
                 fillOpacity: 0.18
             }
