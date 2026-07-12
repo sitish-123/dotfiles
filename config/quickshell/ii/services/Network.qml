@@ -108,6 +108,10 @@ Singleton {
     }
 
     function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
+        // Ignore a new connect while one is in flight: connectProc and its onExited are
+        // shared + overwrite wifiConnectTarget, so a second tap mid-connect would let
+        // the first attempt's result (askingPassword/clear) land on the wrong AP.
+        if (connectProc.running) return;
         accessPoint.askingPassword = false;
         root.wifiConnectTarget = accessPoint;
         // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
@@ -120,6 +124,7 @@ Singleton {
     // 802.1X, whose EAP password can't be re-supplied from a scan the way a PSK can),
     // so they don't ask for credentials again every session.
     function connectSavedNetwork(accessPoint: WifiAccessPoint): void {
+        if (connectProc.running) return;   // one connect at a time (see connectToWifiNetwork)
         accessPoint.askingPassword = false;
         root.wifiConnectTarget = accessPoint;
         connectProc.exec(["nmcli", "connection", "up", "id", accessPoint.ssid]);

@@ -18,6 +18,17 @@ DialogListItem {
     signal toggleExpand()
     pointingHandCursor: true
 
+    // Pairing can hang indefinitely if BlueZ never resolves (agent gone / device off),
+    // which would leave the primary button disabled forever. Recover after 30s: flip to
+    // a "Try again" state and re-enable, instead of a permanent "Connecting…".
+    property bool pairTimedOut: false
+    onIsBusyChanged: if (!root.isBusy) root.pairTimedOut = false
+    Timer {
+        interval: 30000; repeat: false
+        running: root.isBusy && !root.pairTimedOut
+        onTriggered: root.pairTimedOut = true
+    }
+
     active: root.expanded || root.isConnected
     onClicked: root.toggleExpand()
 
@@ -181,12 +192,14 @@ DialogListItem {
                     }
                     DialogButton { // primary
                         Layout.fillWidth: true
-                        enabled: !root.isBusy
-                        buttonText: root.isBusy ? Translation.tr("Connecting…")
+                        enabled: !root.isBusy || root.pairTimedOut
+                        buttonText: (root.isBusy && !root.pairTimedOut) ? Translation.tr("Connecting…")
+                            : root.pairTimedOut ? Translation.tr("Try again")
                             : root.isConnected ? Translation.tr("Disconnect")
                             : root.isPaired ? Translation.tr("Connect")
                             : Translation.tr("Pair")
                         onClicked: {
+                            root.pairTimedOut = false;
                             if (root.isConnected) root.device?.disconnect();
                             else if (root.isPaired) root.device?.connect();
                             else root.device?.pair();

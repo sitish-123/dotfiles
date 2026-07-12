@@ -79,6 +79,16 @@ ContentPage {
                 required property var modelData
                 readonly property bool isConnected: modelData?.connected ?? false
                 readonly property bool isPaired: modelData?.paired ?? false
+                readonly property bool isBusy: modelData?.pairing ?? false
+                // Recover from a hung BlueZ pairing after 30s (see the sidebar item) so
+                // the row doesn't sit on "Connecting…" forever.
+                property bool pairTimedOut: false
+                onIsBusyChanged: if (!drow.isBusy) drow.pairTimedOut = false
+                Timer {
+                    interval: 30000; repeat: false
+                    running: drow.isBusy && !drow.pairTimedOut
+                    onTriggered: drow.pairTimedOut = true
+                }
                 Layout.fillWidth: true
                 Layout.topMargin: 2
                 spacing: 2
@@ -105,7 +115,8 @@ ContentPage {
                             color: Appearance.colors.colSubtext
                             text: {
                                 const p = [];
-                                if (drow.modelData?.pairing) p.push(Translation.tr("Connecting…"));
+                                if (drow.pairTimedOut) p.push(Translation.tr("Pairing timed out"));
+                                else if (drow.isBusy) p.push(Translation.tr("Connecting…"));
                                 else if (drow.isConnected) p.push(Translation.tr("Connected"));
                                 else if (drow.isPaired) p.push(Translation.tr("Paired"));
                                 else p.push(Translation.tr("Available"));
@@ -123,6 +134,7 @@ ContentPage {
                     DialogButton {
                         buttonText: drow.isConnected ? Translation.tr("Disconnect") : drow.isPaired ? Translation.tr("Connect") : Translation.tr("Pair")
                         onClicked: {
+                            drow.pairTimedOut = false;
                             if (drow.isConnected) drow.modelData?.disconnect();
                             else if (drow.isPaired) drow.modelData?.connect();
                             else drow.modelData?.pair();

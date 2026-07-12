@@ -64,23 +64,39 @@ ExpandableChoiceButton {
                 }
             }
 
-            WButton {
+            RowLayout { // Action row: Forget (paired) + primary
                 Layout.alignment: Qt.AlignRight
-                horizontalAlignment: Text.AlignHCenter
                 visible: root.expanded
-                checked: !(root.device?.connected ?? false)
-                colBackground: Looks.colors.bg2
-                colBackgroundHover: Looks.colors.bg2Hover
-                colBackgroundActive: Looks.colors.bg2Active
-                implicitHeight: 30
-                implicitWidth: 148
-                text: root.device?.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
+                spacing: 8
 
-                onClicked: {
-                    if (root.device?.connected) {
-                        root.device.disconnect();
-                    } else {
-                        root.device.connect();
+                WButton { // Forget — only for already-paired devices
+                    visible: root.device?.paired ?? false
+                    horizontalAlignment: Text.AlignHCenter
+                    colBackground: Looks.colors.bg2
+                    colBackgroundHover: Looks.colors.bg2Hover
+                    colBackgroundActive: Looks.colors.bg2Active
+                    implicitHeight: 30
+                    implicitWidth: 90
+                    text: Translation.tr("Forget")
+                    onClicked: root.device?.forget()
+                }
+                WButton { // primary: pair unpaired devices, else connect/disconnect
+                    horizontalAlignment: Text.AlignHCenter
+                    checked: !(root.device?.connected ?? false)
+                    colBackground: Looks.colors.bg2
+                    colBackgroundHover: Looks.colors.bg2Hover
+                    colBackgroundActive: Looks.colors.bg2Active
+                    implicitHeight: 30
+                    implicitWidth: 148
+                    text: (root.device?.pairing ?? false) ? Translation.tr("Pairing…")
+                        : root.device?.connected ? Translation.tr("Disconnect")
+                        : root.device?.paired ? Translation.tr("Connect")
+                        : Translation.tr("Pair")
+
+                    onClicked: {
+                        if (root.device?.connected) root.device.disconnect();
+                        else if (root.device?.paired) root.device.connect();
+                        else root.device?.pair();
                     }
                 }
             }
