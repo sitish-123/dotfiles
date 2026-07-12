@@ -81,9 +81,12 @@ Singleton {
         function setDirectoryIfValid(path) {
             validateDirProc.nicePath = FileUtils.trimFileProtocol(path).replace(/\/+$/, "")
             if (/^\/*$/.test(validateDirProc.nicePath)) validateDirProc.nicePath = "/";
+            // Single-quote + escape the path: inside DOUBLE quotes bash still evaluates
+            // $(...) / backticks, so a directory named `$(cmd)` would execute on select.
+            const p = StringUtils.shellSingleQuoteEscape(validateDirProc.nicePath)
             validateDirProc.exec([
                 "bash", "-c",
-                `if [ -d "${validateDirProc.nicePath}" ]; then echo dir; elif [ -f "${validateDirProc.nicePath}" ]; then echo file; else echo invalid; fi`
+                `if [ -d '${p}' ]; then echo dir; elif [ -f '${p}' ]; then echo file; else echo invalid; fi`
             ])
         }
         stdout: StdioCollector {
@@ -117,7 +120,10 @@ Singleton {
         id: folderModel
         folder: Qt.resolvedUrl(root.defaultFolder)
         caseSensitive: false
-        nameFilters: root.extensions.map(ext => `*${searchQuery.split(" ").filter(s => s.length > 0).map(s => `*${s}*`)}*.${ext}`)
+        // Join words with `*` into ONE glob per extension. The old inner `.map(...)`
+        // stringified an ARRAY (comma-joined) into the pattern → e.g. `**red*,*car**.jpg`,
+        // silently matching nothing for a multi-word search.
+        nameFilters: root.extensions.map(ext => `*${searchQuery.split(" ").filter(s => s.length > 0).join("*")}*.${ext}`)
         showDirs: true
         showDotAndDotDot: false
         showOnlyReadable: true
@@ -137,9 +143,12 @@ Singleton {
         if (!["normal", "large", "x-large", "xx-large"].includes(size)) throw new Error("Invalid thumbnail size");
         thumbgenProc.directory = root.directory
         thumbgenProc.running = false
+        // Escape+quote the directory (size is whitelist-validated above); an unquoted
+        // path with spaces broke the command and `$()`/`;` injected.
+        const dir = StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(root.directory))
         thumbgenProc.command = [
             "bash", "-c",
-            `${thumbgenScriptPath} --size ${size} --machine_progress -d ${FileUtils.trimFileProtocol(root.directory)} || ${generateThumbnailsMagickScriptPath} --size ${size} -d ${FileUtils.trimFileProtocol(root.directory)}`,
+            `${thumbgenScriptPath} --size ${size} --machine_progress -d '${dir}' || ${generateThumbnailsMagickScriptPath} --size ${size} -d '${dir}'`,
         ]
         // console.log("[Wallpapers] Updating thumbnails with command ", thumbgenProc.command.join(" "))
         root.thumbnailGenerationProgress = 0

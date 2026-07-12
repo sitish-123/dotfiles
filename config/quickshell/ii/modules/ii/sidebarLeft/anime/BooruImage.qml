@@ -20,7 +20,13 @@ Button {
     property string previewDownloadPath
     property string downloadPath
     property string nsfwPath
-    property string fileName: decodeURIComponent((imageData.file_url).substring((imageData.file_url).lastIndexOf('/') + 1))
+    // Basename only: guard a missing file_url, and after decoding strip any path
+    // separators a %2F could reintroduce (path traversal into the -o download target).
+    property string fileName: {
+        const url = imageData?.file_url ?? "";
+        const raw = decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
+        return raw.replace(/[\/\\]/g, "_");
+    }
     property string filePath: `${root.previewDownloadPath}/${root.fileName}`
     property int maxTagStringLineLength: 50
     property real imageRadius: Appearance.rounding.small
@@ -174,8 +180,9 @@ Button {
                                 const targetPath = root.imageData.is_nsfw ? root.nsfwPath : root.downloadPath;
                                 const userAgent = Config.options?.networking?.userAgent ?? ""
                                 const userAgentHeader = userAgent ? ` -H 'User-Agent: ${StringUtils.shellSingleQuoteEscape(userAgent)}'` : ""
-                                Quickshell.execDetached(["bash", "-c", 
-                                    `mkdir -p '${targetPath}' && curl '${StringUtils.shellSingleQuoteEscape(root.imageData.file_url)}'${userAgentHeader} -o '${targetPath}/${root.fileName}' && notify-send '${Translation.tr("Download complete")}' '${root.downloadPath}/${root.fileName}' -a 'Shell'`
+                                const esc = StringUtils.shellSingleQuoteEscape;
+                                Quickshell.execDetached(["bash", "-c",
+                                    `mkdir -p '${esc(targetPath)}' && curl '${esc(root.imageData.file_url)}'${userAgentHeader} -o '${esc(targetPath + "/" + root.fileName)}' && notify-send '${esc(Translation.tr("Download complete"))}' '${esc(root.downloadPath + "/" + root.fileName)}' -a 'Shell'`
                                 ])
                             }
                         }

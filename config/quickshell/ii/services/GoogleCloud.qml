@@ -58,9 +58,13 @@ Singleton {
         }
         tokenProc.runSequence([(() => { // prep token fetcher
                 tokenProc.environment.SERVICE_KEY_CONTENT = JSON.stringify(root.keyContent);
+                // Pass the private key via the ENVIRONMENT ONLY — never on argv. The old
+                // `"$SERVICE_KEY_CONTENT"` argument re-expanded the key onto the script's
+                // command line, where any local user could read it from /proc/<pid>/cmdline
+                // (which is world-readable here). The script now reads it from the env.
                 tokenProc.command = [ //
                     "bash", "-c" //
-                    , `${tokenForKeyScriptPath} "$SERVICE_KEY_CONTENT"`];
+                    , `${tokenForKeyScriptPath}`];
             }), //
             [], // run token fetcher
             ((out) => {

@@ -523,7 +523,7 @@ Singleton {
     }
 
     function setTemperature(value) {
-        if (value == NaN || value < 0 || value > 2) {
+        if (isNaN(value) || value < 0 || value > 2) {
             root.addMessage(Translation.tr("Temperature must be between 0 and 2"), Ai.interfaceRole);
             return;
         }
@@ -654,7 +654,7 @@ Singleton {
 
             /* Create command string */
             let scriptRequestContent = ""
-            scriptRequestContent += `curl --no-buffer "${endpoint}"`
+            scriptRequestContent += `curl --no-buffer --connect-timeout 30 --speed-limit 1 --speed-time 90 "${endpoint}"`
                 + ` ${headerString}`
                 + (authHeader ? ` ${authHeader}` : "")
                 + ` --data '${CF.StringUtils.shellSingleQuoteEscape(JSON.stringify(data))}'`
@@ -703,7 +703,15 @@ Singleton {
 
         onExited: (exitCode, exitStatus) => {
             const result = requester.currentStrategy.onRequestFinished(requester.message);
-            
+
+            // A non-zero curl exit with no content = a silent blank bubble; surface it
+            // (connect/stall timeout, DNS failure, etc.) instead of committing "".
+            if (exitCode !== 0 && !(requester.message.content && requester.message.content.length > 0)) {
+                const errNote = Translation.tr("*(request failed — curl exit %1; check network / API key)*").arg(exitCode);
+                requester.message.content += errNote;
+                requester.message.rawContent += errNote;
+            }
+
             if (result.finished) {
                 requester.markDone();
             } else if (!requester.message.done) {
@@ -719,6 +727,12 @@ Singleton {
 
     function sendUserMessage(message) {
         if (message.length === 0) return;
+        // Don't start a new turn while one is still streaming: sendUserMessage/regenerate
+        // share the single `requester` Process + its message buffer, so a concurrent send
+        // corrupted the in-flight response (tokens streamed into the new bubble) and the
+        // second request never launched. Internal function-call continuations re-enter
+        // makeRequest directly and are unaffected by this guard.
+        if (requester.running) return;
         root.addMessage(message, "user");
         requester.makeRequest();
     }
@@ -728,6 +742,7 @@ Singleton {
     }
 
     function regenerate(messageIndex) {
+        if (requester.running) return;   // don't regenerate mid-stream (see sendUserMessage)
         if (messageIndex < 0 || messageIndex >= messageIDs.length) return;
         const id = root.messageIDs[messageIndex];
         const message = root.messageByID[id];
@@ -768,6 +783,15 @@ Singleton {
     function approveCommand(message: AiMessageData) {
         if (!message.functionPending) return;
         message.functionPending = false; // User decided, no more "thinking"
+
+        // Config-change approval: apply the value and continue the turn (no shell run).
+        if (message.functionName === "set_shell_config") {
+            Config.setNestedValue(message.functionCall.args.key, message.functionCall.args.value);
+            addFunctionOutputMessage(message.functionName,
+                Translation.tr("Config updated: %1").arg(message.functionCall.args.key));
+            requester.makeRequest();
+            return;
+        }
 
         const responseMessage = createFunctionOutputMessage(message.functionName, "", false);
         const id = idForMessage(responseMessage);
@@ -812,13 +836,19 @@ Singleton {
             addFunctionOutputMessage(name, JSON.stringify(configJson));
             requester.makeRequest();
         } else if (name === "set_shell_config") {
-            if (!args.key || !args.value) {
+            if (args.key === undefined || args.value === undefined) {
                 addFunctionOutputMessage(name, Translation.tr("Invalid arguments. Must provide `key` and `value`."));
                 return;
             }
-            const key = args.key;
-            const value = args.value;
-            Config.setNestedValue(key, value);
+            // Gate config changes behind the SAME explicit user approval as
+            // run_shell_command. Applying them straight from the model's tool-call args
+            // let a prompt-injection (e.g. in a web-search result / attached file) silently
+            // rewrite shell config — including keys that drive shell commands — with no
+            // consent. approveCommand applies it once the user confirms.
+            const contentToAppend = `\n\n**Config change request**\n\n\`\`\`command\nset ${args.key} = ${JSON.stringify(args.value)}\n\`\`\``;
+            message.rawContent += contentToAppend;
+            message.content += contentToAppend;
+            message.functionPending = true;
         } else if (name === "run_shell_command") {
             if (!args.command || args.command.length === 0) {
                 addFunctionOutputMessage(name, Translation.tr("Invalid arguments. Must provide `command`."));
@@ -833,8 +863,13 @@ Singleton {
     }
 
     function chatToJson() {
-        return root.messageIDs.map(id => {
-            const message = root.messageByID[id]
+        return root.messageIDs
+            .map(id => root.messageByID[id])
+            // Never persist interface-role messages: ephemeral UI output (advice, /temp
+            // confirmations, and crucially the /key printout) — serializing them wrote
+            // the API key into lastSession.json in plaintext.
+            .filter(message => message.role !== root.interfaceRole)
+            .map(message => {
             return ({
                 "role": message.role,
                 "rawContent": message.rawContent,
