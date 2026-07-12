@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Quickshell
-import Quickshell.Bluetooth
 import qs
 import qs.services
 import qs.services.network
@@ -16,13 +15,9 @@ import qs.modules.waffle.actionCenter
 Item {
     id: root
 
-    Component.onCompleted: {
-        if (Bluetooth.defaultAdapter.enabled)
-            Bluetooth.defaultAdapter.discovering = true;
-    }
-    Component.onDestruction: {
-        Bluetooth.defaultAdapter.discovering = false;
-    }
+    // (Removed stray Bluetooth-discovery lifecycle handlers copy-pasted from
+    // BluetoothControl — the Night Light panel must not drive Bluetooth, and the
+    // unguarded defaultAdapter deref crashed on adapterless machines.)
 
     WPanelPageColumn {
         anchors.fill: parent

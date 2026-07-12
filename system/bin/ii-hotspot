@@ -21,6 +21,9 @@
 set -euo pipefail
 
 WIFI="$(nmcli -t -f DEVICE,TYPE d 2>/dev/null | awk -F: '$2=="wifi"{print $1; exit}')"
+# Root-only (600) file that carries SSID/passphrase to create_ap OUT of argv (see the
+# create_ap invocation below). On tmpfs; removed by stop_all.
+AP_CONF=/run/ii-hotspot.conf
 
 log() { echo "ii-hotspot: $*" >&2; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -71,6 +74,7 @@ stop_all() {
     have create_ap && { create_ap --stop "$WIFI" 2>/dev/null || true; }
     pkill -f "create_ap.*(^| )$WIFI( |\$)" 2>/dev/null || true
     nmcli connection down Hotspot 2>/dev/null || true
+    rm -f "$AP_CONF" 2>/dev/null || true
 }
 
 case "${1:-status}" in
@@ -122,10 +126,19 @@ case "${1:-status}" in
         fi
         log "Wi-Fi uplink -> create_ap concurrent share on $WIFI (channel $CHAN, $(sta_band "$SFREQ") GHz)"
         systemctl reset-failed ii-hotspot.service 2>/dev/null || true
-        set -- systemd-run --unit=ii-hotspot --collect --property=Restart=no \
-               create_ap -c "$CHAN" "$WIFI" "$WIFI" "$SSID"
-        [ -n "$PASS" ] && set -- "$@" "$PASS"
-        "$@" || { log "failed to launch the hotspot service unit"; exit 5; }
+        # Pass SSID/passphrase via a root-only config file, NOT as argv. Command-line
+        # args are world-readable through /proc/<pid>/cmdline and the unit's ExecStart,
+        # so an argv passphrase leaked the WPA key to any local user. create_ap reads
+        # these from --config into quoted positional args (create_ap:1288-1300), which
+        # also stops an SSID like "-5g" from being mis-parsed as an option.
+        ( umask 077
+          { printf 'CHANNEL=%s\nWIFI_IFACE=%s\nINTERNET_IFACE=%s\nSSID=%s\n' \
+              "$CHAN" "$WIFI" "$WIFI" "$SSID"
+            if [ -n "$PASS" ]; then printf 'PASSPHRASE=%s\n' "$PASS"; fi
+          } > "$AP_CONF" )
+        systemd-run --unit=ii-hotspot --collect --property=Restart=no \
+               create_ap --config "$AP_CONF" \
+            || { log "failed to launch the hotspot service unit"; exit 5; }
 
         # systemd-run returns the instant the unit starts, but create_ap's AP comes up
         # (or fails) a few seconds later. Wait for a real AP iface so the UI learns the

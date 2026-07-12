@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import Quickshell.Io
 import qs.services
@@ -38,7 +39,11 @@ ContentPage {
         }
     }
     Timer {
-        running: root.visible
+        // Gate on WINDOW visibility too: the settings window is a warm instance that
+        // hides (visible=false) rather than quits, and the Loader keeps this page's
+        // item `visible` — so without this the heavy power-snapshot spawned every 4s
+        // forever in the background whenever Battery was the last page viewed.
+        running: root.visible && (Window.window?.visible ?? false)
         repeat: true
         interval: 4000
         triggeredOnStart: true

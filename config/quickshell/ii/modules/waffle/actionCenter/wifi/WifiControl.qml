@@ -47,7 +47,11 @@ Item {
                             id: toggleSwitch
                             Layout.rightMargin: 12
                             checked: Network.wifiStatus !== "disabled"
-                            onCheckedChanged: {
+                            // onToggled (user-only), not onCheckedChanged: the latter
+                            // fires on the binding too, so an external radio state change
+                            // (rfkill, another client) would re-issue enableWifi + a
+                            // spurious rescan against the just-changed value.
+                            onToggled: {
                                 Network.enableWifi(checked);
                                 Network.rescanWifi();
                             }

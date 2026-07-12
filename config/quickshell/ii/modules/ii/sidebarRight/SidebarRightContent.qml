@@ -129,6 +129,7 @@ Item {
         shownPropertyString: "showBluetoothDialog"
         dialog: BluetoothDialog {}
         onShownChanged: {
+            if (!Bluetooth.defaultAdapter) return;   // no adapter → derefs would throw
             if (!shown) {
                 Bluetooth.defaultAdapter.discovering = false;
             } else {

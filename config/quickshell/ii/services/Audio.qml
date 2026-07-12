@@ -17,7 +17,7 @@ Singleton {
     property PwNode source: Pipewire.defaultAudioSource
     readonly property real hardMaxValue: 2.00 // People keep joking about setting volume to 5172% so...
     property string audioTheme: Config.options.sounds.theme
-    property real value: sink?.audio.volume ?? 0
+    property real value: sink?.audio?.volume ?? 0
     
     function friendlyDeviceName(node) {
         return (node.nickname || node.description || Translation.tr("Unknown"));
@@ -59,14 +59,15 @@ Singleton {
 
     function incrementVolume() {
         const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
+        const step = currentVolume < 0.1 ? 0.01 : 0.02;
         Audio.sink.audio.volume = Math.min(1, Audio.sink.audio.volume + step);
     }
-    
+
     function decrementVolume() {
         const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
-        Audio.sink.audio.volume -= step;
+        const step = currentVolume < 0.1 ? 0.01 : 0.02;
+        // Clamp at 0 — repeated key-repeat at zero otherwise drives volume negative.
+        Audio.sink.audio.volume = Math.max(0, Audio.sink.audio.volume - step);
     }
 
     function setDefaultSink(node) {

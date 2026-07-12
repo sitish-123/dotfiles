@@ -389,6 +389,24 @@ ApplicationWindow {
                         source = root.pages[0].component
                     }
 
+                    // Error boundary: a page that fails to load (bad import / creation
+                    // error) would otherwise blank the whole content pane silently. Show
+                    // a placeholder instead; the next navigation resets `source`.
+                    onStatus: if (status === Loader.Error) pageLoader.sourceComponent = pageErrorComponent
+
+                    Component {
+                        id: pageErrorComponent
+                        Item {
+                            Text {
+                                anchors.centerIn: parent
+                                horizontalAlignment: Text.AlignHCenter
+                                color: "#ff6b6b"
+                                font.pixelSize: 16
+                                text: "This settings page failed to load.\nSee the terminal/journal (qs) for the QML error."
+                            }
+                        }
+                    }
+
                     Connections {
                         target: root
                         function onCurrentPageChanged() {

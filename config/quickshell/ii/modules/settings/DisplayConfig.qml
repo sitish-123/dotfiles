@@ -142,7 +142,10 @@ ContentPage {
 
     // Per-monitor controls
     Repeater {
-        model: ScriptModel { values: page.monitors }
+        // objectProp keeps delegates stable across the 600ms reapply-read poll, which
+        // reassigns page.monitors to fresh objects — without a key every per-monitor
+        // section is torn down + rebuilt each poll (flicker, lost scroll/focus).
+        model: ScriptModel { objectProp: "name"; values: page.monitors }
         delegate: ContentSection {
             required property var modelData
             readonly property var m: modelData

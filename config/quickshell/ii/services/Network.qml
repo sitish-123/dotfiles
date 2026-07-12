@@ -87,6 +87,9 @@ Singleton {
     // Control
     function enableWifi(enabled = true): void {
         const cmd = enabled ? "on" : "off";
+        // Turning the radio off mid-scan would otherwise leave the spinner running
+        // until scanSettle's ticks expire (~5s).
+        if (!enabled) { scanSettle.stop(); root.wifiScanning = false; }
         enableWifiProc.exec(["nmcli", "radio", "wifi", cmd]);
     }
 
@@ -173,7 +176,8 @@ Singleton {
         shareInfoProc.exec({
             "environment": { "SSID": ssid, "OUT": `/tmp/quickshell/wifi-qr-${root.shareNonce}.png` },
             "command": ["bash", "-c",
-                'mkdir -p /tmp/quickshell; ' +
+                // rm prior QR PNGs so at most the current one lingers in /tmp.
+                'mkdir -p /tmp/quickshell; rm -f /tmp/quickshell/wifi-qr-*.png; ' +
                 'PSK=$(nmcli -s -g 802-11-wireless-security.psk connection show "$SSID" 2>/dev/null); ' +
                 'esc() { printf "%s" "$1" | sed \'s/\\\\/\\\\\\\\/g; s/;/\\\\;/g; s/,/\\\\,/g; s/:/\\\\:/g\'; }; ' +
                 'if [ -n "$PSK" ]; then T=WPA; else T=nopass; fi; ' +
@@ -192,6 +196,13 @@ Singleton {
             root.sharePassword = shareInfoProc.buffer;
             root.shareQrPath = `/tmp/quickshell/wifi-qr-${root.shareNonce}.png`;
         }
+    }
+    // Clear the revealed password + QR from memory and disk. Call when the share
+    // panel closes so the PSK-bearing PNG doesn't linger in /tmp.
+    function clearShareInfo(): void {
+        root.sharePassword = "";
+        root.shareQrPath = "";
+        Quickshell.execDetached(["sh", "-c", "rm -f /tmp/quickshell/wifi-qr-*.png"]);
     }
 
     // --- Auto-connect toggle (for the connected network) -----------------------
@@ -232,6 +243,9 @@ Singleton {
     function changePassword(network: WifiAccessPoint, password: string, username = ""): void {
         // TODO: enterprise wifi with username
         network.askingPassword = false;
+        // Keep the retry target alive: changePasswordProc.onExited re-attempts the
+        // connect, and connectProc.onExited needs a non-null wifiConnectTarget.
+        root.wifiConnectTarget = network;
         changePasswordProc.exec({
             "environment": {
                 "PASSWORD": password,
@@ -397,13 +411,17 @@ Singleton {
         stderr: SplitParser {
             onRead: line => {
                 // print("err:", line)
-                if (line.includes("Secrets were required")) {
+                if (line.includes("Secrets were required") && root.wifiConnectTarget) {
                     root.wifiConnectTarget.askingPassword = true
                 }
             }
         }
         onExited: (exitCode, exitStatus) => {
-            root.wifiConnectTarget.askingPassword = (exitCode !== 0)
+            // Guard the deref: the changePassword retry path re-runs this proc after the
+            // first attempt already nulled the target — an unguarded write threw a
+            // TypeError and silently killed the whole password-entry flow.
+            if (root.wifiConnectTarget)
+                root.wifiConnectTarget.askingPassword = (exitCode !== 0)
             root.wifiConnectTarget = null
             getSavedProfiles.running = true
         }
@@ -433,8 +451,10 @@ Singleton {
     Process {
         id: changePasswordProc
         onExited: { // Re-attempt connection after changing password
-            connectProc.running = false
-            connectProc.running = true
+            // Re-issue against the tracked target (re-sets its command + askingPassword)
+            // instead of blindly toggling connectProc, which could reconnect a stale SSID.
+            if (root.wifiConnectTarget)
+                root.connectToWifiNetwork(root.wifiConnectTarget);
         }
     }
 
@@ -585,7 +605,8 @@ Singleton {
         command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi | awk '/^\\*/{if (NR!=1) {print $2}}'"]
         stdout: SplitParser {
             onRead: data => {
-                root.networkStrength = parseInt(data);
+                const v = parseInt(data);
+                root.networkStrength = isNaN(v) ? 0 : v;
             }
         }
     }
@@ -624,16 +645,21 @@ Singleton {
                 const rep = new RegExp("\\\\:", "g");
                 const rep2 = new RegExp(PLACEHOLDER, "g");
 
+                const unesc = s => (s ?? "").replace(rep2, ":");
                 const allNetworks = text.trim().split("\n").map(n => {
                     const net = n.replace(rep, PLACEHOLDER).split(":");
+                    // Un-escape EVERY colon-bearing field, not just bssid. An SSID like
+                    // "Guest:5G" otherwise keeps the placeholder and becomes the wrong
+                    // connect/forget id, a garbled label, and misses the saved-match.
+                    const ssid = unesc(net[3]);
                     return {
                         active: net[0] === "yes",
                         strength: parseInt(net[1]),
                         frequency: parseInt(net[2]),
-                        ssid: net[3],
-                        bssid: net[4]?.replace(rep2, ":") ?? "",
-                        security: net[5] || "",
-                        saved: root.savedWifiProfiles.includes(net[3])
+                        ssid: ssid,
+                        bssid: unesc(net[4]),
+                        security: unesc(net[5]),
+                        saved: root.savedWifiProfiles.includes(ssid)
                     };
                 }).filter(n => n.ssid && n.ssid.length > 0);
 

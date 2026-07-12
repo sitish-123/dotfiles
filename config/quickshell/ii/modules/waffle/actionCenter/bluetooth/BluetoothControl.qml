@@ -17,10 +17,10 @@ Item {
     id: root
 
     Component.onCompleted: {
-        if (Bluetooth.defaultAdapter.enabled) Bluetooth.defaultAdapter.discovering = true;
+        if (Bluetooth.defaultAdapter?.enabled) Bluetooth.defaultAdapter.discovering = true;
     }
     Component.onDestruction: {
-        Bluetooth.defaultAdapter.discovering = false;
+        if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false;
     }
 
     // Auto-stop discovery after a window so the scan spinner doesn't run forever while
@@ -61,7 +61,10 @@ Item {
                             id: toggleSwitch
                             Layout.rightMargin: 12
                             checked: Bluetooth.defaultAdapter?.enabled ?? false
-                            onCheckedChanged: {
+                            // onToggled (user-only), not onCheckedChanged: Switch flips
+                            // its own `checked` imperatively on click, which would break
+                            // the declarative binding and desync from external changes.
+                            onToggled: {
                                 if (Bluetooth.defaultAdapter) {
                                     Bluetooth.defaultAdapter.enabled = checked;
                                     if (checked) {

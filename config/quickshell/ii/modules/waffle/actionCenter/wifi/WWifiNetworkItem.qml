@@ -15,6 +15,16 @@ ExpandableChoiceButton {
     id: root
     required property WifiAccessPoint wifiNetwork
 
+    // Auto-expand + reveal the password field when a secured connect needs a PSK.
+    // The action-center list previously had no password UI at all, so secured/
+    // enterprise networks just silently failed to connect.
+    Connections {
+        target: root.wifiNetwork
+        function onAskingPasswordChanged() {
+            if (root.wifiNetwork?.askingPassword) root.expanded = true;
+        }
+    }
+
     contentItem: RowLayout {
         id: contentItem
         spacing: 12
@@ -76,6 +86,17 @@ ExpandableChoiceButton {
                 }
             }
 
+            MaterialTextField { // PSK password — shown when a secured connect needs one
+                id: passwordField
+                visible: (root.wifiNetwork?.askingPassword ?? false) && !(root.wifiNetwork?.active ?? false)
+                Layout.fillWidth: true
+                Layout.rightMargin: 12
+                placeholderText: Translation.tr("Password")
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhSensitiveData
+                onAccepted: Network.changePassword(root.wifiNetwork, passwordField.text)
+            }
+
             WButton {
                 Layout.alignment: Qt.AlignRight
                 horizontalAlignment: Text.AlignHCenter
@@ -86,11 +107,15 @@ ExpandableChoiceButton {
                 colBackgroundActive: Looks.colors.bg2Active
                 implicitHeight: 30
                 implicitWidth: 148
-                text: root.wifiNetwork?.active ? Translation.tr("Disconnect") : Translation.tr("Connect")
+                text: root.wifiNetwork?.active ? Translation.tr("Disconnect")
+                    : root.wifiNetwork?.askingPassword ? Translation.tr("Sign in")
+                    : Translation.tr("Connect")
 
                 onClicked: {
                     if (root.wifiNetwork?.active) {
                         Network.disconnectWifiNetwork();
+                    } else if (root.wifiNetwork?.askingPassword) {
+                        Network.changePassword(root.wifiNetwork, passwordField.text);
                     } else {
                         Network.connectToWifiNetwork(root.wifiNetwork);
                     }
