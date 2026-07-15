@@ -392,7 +392,7 @@ ApplicationWindow {
                     // Error boundary: a page that fails to load (bad import / creation
                     // error) would otherwise blank the whole content pane silently. Show
                     // a placeholder instead; the next navigation resets `source`.
-                    onStatus: if (status === Loader.Error) pageLoader.sourceComponent = pageErrorComponent
+                    onStatusChanged: if (status === Loader.Error) pageLoader.sourceComponent = pageErrorComponent
 
                     Component {
                         id: pageErrorComponent
