@@ -11,7 +11,11 @@ import Quickshell
 DialogListItem {
     id: root
     required property WifiAccessPoint wifiNetwork
-    readonly property bool isActive: wifiNetwork?.active ?? false
+    // "Connected" iff this is THE one network the service resolves as active — not just
+    // scan-flagged active. nmcli marks a BSS in-use even while merely *associating*
+    // (e.g. a wrong-password profile mid-retry), which was painting a false "Connected"
+    // on a second row. Gating on Network.active guarantees at most one connected row.
+    readonly property bool isActive: (wifiNetwork?.active ?? false) && wifiNetwork === Network.active
     readonly property bool isEnterprise: wifiNetwork?.isEnterprise ?? false
     readonly property bool isSecure: wifiNetwork?.isSecure ?? false
     readonly property bool saved: wifiNetwork?.saved ?? false
@@ -24,9 +28,14 @@ DialogListItem {
     // enterprise network otherwise reconnects from its stored EAP secrets (no prompt).
     property bool reEntering: false
     readonly property bool entering: root.isEnterprise && !root.isActive && (!root.saved || root.reEntering)
-    onExpandedChanged: if (!expanded) reEntering = false
+    // True while this network's connect attempt is in flight (drives the Cancel action).
+    readonly property bool connecting: Network.wifiConnectTarget === root.wifiNetwork && !isActive
+    // Clear transient state when the row collapses so a stale error doesn't linger.
+    onExpandedChanged: if (!expanded) { reEntering = false; if (root.wifiNetwork) root.wifiNetwork.connectError = ""; }
 
-    enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !isActive)
+    // NOTE: the row stays enabled during a connect on purpose — the old
+    // `enabled: !(connectTarget===this && !isActive)` greyed out the whole row
+    // (including Forget) while connecting, so a stuck attempt made Forget dead.
     active: (root.expanded || root.isActive) ?? false
     onClicked: if (root.wifiNetwork) root.wifiNetwork.expanded = !root.wifiNetwork.expanded
 
@@ -237,6 +246,21 @@ DialogListItem {
                     }
                 }
 
+                StyledText { // connect failure reason (wrong password / not found / …)
+                    visible: (root.wifiNetwork?.connectError ?? "") !== "" && !root.isActive && !root.connecting
+                    Layout.fillWidth: true
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colError ?? Appearance.colors.colSubtext
+                    wrapMode: Text.WordWrap
+                    text: {
+                        switch (root.wifiNetwork?.connectError) {
+                            case "bad-password": return Translation.tr("Incorrect password — try again");
+                            case "not-found": return Translation.tr("Network not found — is it in range?");
+                            default: return Translation.tr("Couldn't connect. Check the password and try again.");
+                        }
+                    }
+                }
+
                 MaterialTextField { // PSK password
                     id: passwordField
                     visible: (root.wifiNetwork?.askingPassword ?? false) && !root.isEnterprise && !root.isActive
@@ -287,11 +311,14 @@ DialogListItem {
                         // Only require an identity when we're actually entering credentials.
                         enabled: !root.entering || identityField.text.length > 0
                         buttonText: root.isActive ? Translation.tr("Disconnect")
+                            : root.connecting ? Translation.tr("Cancel")
                             : root.entering ? Translation.tr("Sign in")
                             : Translation.tr("Connect")
                         onClicked: {
                             if (root.isActive)
                                 Network.disconnectWifiNetwork();
+                            else if (root.connecting)
+                                Network.cancelConnect();
                             else if (root.entering)
                                 Network.connectToWifiEnterprise(root.wifiNetwork, identityField.text, entPasswordField.text, root.eapMethod);
                             else if (root.isEnterprise && root.saved)

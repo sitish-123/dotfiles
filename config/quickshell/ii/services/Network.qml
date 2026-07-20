@@ -113,9 +113,12 @@ Singleton {
         // the first attempt's result (askingPassword/clear) land on the wrong AP.
         if (connectProc.running) return;
         accessPoint.askingPassword = false;
+        accessPoint.connectError = "";
         root.wifiConnectTarget = accessPoint;
-        // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
-        connectProc.exec(["nmcli", "dev", "wifi", "connect", accessPoint.ssid])
+        // `dev wifi connect` also creates a profile (vs `connection up SSID`). Bound it
+        // with --wait so a wrong stored password fails in ~25s and surfaces an error,
+        // instead of NM retrying forever behind an endless "Connecting…" spinner.
+        connectProc.exec(["nmcli", "--wait", "25", "dev", "wifi", "connect", accessPoint.ssid])
 
     }
 
@@ -126,12 +129,28 @@ Singleton {
     function connectSavedNetwork(accessPoint: WifiAccessPoint): void {
         if (connectProc.running) return;   // one connect at a time (see connectToWifiNetwork)
         accessPoint.askingPassword = false;
+        accessPoint.connectError = "";
         root.wifiConnectTarget = accessPoint;
-        connectProc.exec(["nmcli", "connection", "up", "id", accessPoint.ssid]);
+        connectProc.exec(["nmcli", "--wait", "25", "connection", "up", "id", accessPoint.ssid]);
     }
 
     function disconnectWifiNetwork(): void {
         if (active) disconnectProc.exec(["nmcli", "connection", "down", active.ssid]);
+    }
+
+    // Abort an in-flight or stuck connect (e.g. a wrong stored password NM keeps
+    // retrying). Terminates the nmcli connect proc, tears down NM's half-open
+    // activation so its temp-disable/retry loop stops, and clears the UI state.
+    function cancelConnect(): void {
+        const t = root.wifiConnectTarget;
+        connectProc.running = false;
+        connectEnterpriseProc.running = false;
+        if (t) {
+            Quickshell.execDetached(["nmcli", "connection", "down", "id", t.ssid]);
+            t.askingPassword = false;
+            t.connectError = "";
+        }
+        root.wifiConnectTarget = null;
     }
 
     // WPA-Enterprise (802.1X): builds a connection profile with EAP + identity/password.
@@ -248,6 +267,7 @@ Singleton {
     function changePassword(network: WifiAccessPoint, password: string, username = ""): void {
         // TODO: enterprise wifi with username
         network.askingPassword = false;
+        network.connectError = "";
         // Keep the retry target alive: changePasswordProc.onExited re-attempts the
         // connect, and connectProc.onExited needs a non-null wifiConnectTarget.
         root.wifiConnectTarget = network;
@@ -403,20 +423,25 @@ Singleton {
 
     Process {
         id: connectProc
+        property string errBuf: ""
         environment: ({
             LANG: "C",
             LC_ALL: "C"
         })
         stdout: SplitParser {
             onRead: line => {
-                // print(line)
                 getNetworks.running = true
             }
         }
         stderr: SplitParser {
             onRead: line => {
-                // print("err:", line)
-                if (line.includes("Secrets were required") && root.wifiConnectTarget) {
+                connectProc.errBuf += line + "\n";
+                // A wrong / again-needed PSK surfaces as one of these phrases; reveal the
+                // password field immediately (before exit) so the user can retype.
+                if (root.wifiConnectTarget
+                    && (line.includes("Secrets were required")
+                        || line.includes("encryption keys are required")
+                        || line.includes("Passwords or encryption keys"))) {
                     root.wifiConnectTarget.askingPassword = true
                 }
             }
@@ -425,8 +450,20 @@ Singleton {
             // Guard the deref: the changePassword retry path re-runs this proc after the
             // first attempt already nulled the target — an unguarded write threw a
             // TypeError and silently killed the whole password-entry flow.
-            if (root.wifiConnectTarget)
-                root.wifiConnectTarget.askingPassword = (exitCode !== 0)
+            if (root.wifiConnectTarget) {
+                const failed = (exitCode !== 0);
+                root.wifiConnectTarget.askingPassword = failed;
+                // Classify the failure so the UI shows a real reason instead of a
+                // silent endless spinner (the #1 "the Wi-Fi UI is broken" complaint).
+                const e = connectProc.errBuf;
+                root.wifiConnectTarget.connectError = !failed ? ""
+                    : (e.includes("Secrets were required")
+                       || e.includes("encryption keys are required")
+                       || e.includes("Passwords or encryption keys")) ? "bad-password"
+                    : e.includes("could not be found") ? "not-found"
+                    : "failed";
+            }
+            connectProc.errBuf = "";
             root.wifiConnectTarget = null
             getSavedProfiles.running = true
         }
@@ -471,9 +508,20 @@ Singleton {
         // list take ~8s to paint. Here the cached list stays instantly readable;
         // scanSettle re-polls it as NM discovers new APs, then clears the spinner.
         command: ["nmcli", "dev", "wifi", "rescan"]
+        property string errBuf: ""
+        stderr: SplitParser { onRead: line => { rescanProcess.errBuf += line + "\n"; } }
         onExited: (code, status) => {
             getNetworks.running = true;
-            scanSettle.restart();
+            // NM rate-limits rescans (~10-30s). When it refuses, no fresh scan happens,
+            // so keep the cached list but stop the spinner promptly instead of implying
+            // new results are coming (the "rescan just shows the old list" complaint).
+            if (code !== 0 && rescanProcess.errBuf.includes("not allowed")) {
+                scanSettle.stop();
+                root.wifiScanning = false;
+            } else {
+                scanSettle.restart();
+            }
+            rescanProcess.errBuf = "";
         }
     }
     // Drives the scanning spinner + list refresh after an async rescan request:
@@ -698,12 +746,16 @@ Singleton {
                 // typed password. Keep it until the user is done — it'll re-match next scan.
                 const destroyed = rNetworks.filter(rn =>
                     !rn.askingPassword && !rn.expanded && rn !== root.wifiConnectTarget
-                    && !wifiNetworks.find(n => n.frequency === rn.frequency && n.ssid === rn.ssid && n.bssid === rn.bssid));
+                    && !wifiNetworks.find(n => n.ssid === rn.ssid));
                 for (const network of destroyed)
                     rNetworks.splice(rNetworks.indexOf(network), 1).forEach(n => n.destroy());
 
+                // Reconcile by SSID (wifiNetworks is already one-per-SSID). A phone
+                // hotspot rotates its BSSID every scan; matching on BSSID destroyed +
+                // recreated the row each time (flicker, stale phantoms, ScriptModel
+                // churn). Match on SSID and update BSSID/signal in place.
                 for (const network of wifiNetworks) {
-                    const match = rNetworks.find(n => n.frequency === network.frequency && n.ssid === network.ssid && n.bssid === network.bssid);
+                    const match = rNetworks.find(n => n.ssid === network.ssid);
                     if (match) {
                         match.lastIpcObject = network;
                     } else {

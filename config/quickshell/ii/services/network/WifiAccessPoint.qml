@@ -7,8 +7,9 @@ QtObject {
     // Stable unique identity key for ScriptModel.objectProp. Reordering the list by
     // signal bucket makes ScriptModel diff & emit row-moves; keying on a reliable
     // string (not QVariant-wrapped QObject identity) avoids the corrupt-move SIGSEGV
-    // in QQmlDelegateModel::_q_itemsMoved. Dedup keeps (ssid,bssid,frequency) unique.
-    readonly property string apId: ssid + "" + bssid + "" + frequency
+    // in QQmlDelegateModel::_q_itemsMoved. Keyed on SSID (one row per SSID;
+    // phone-hotspot BSSIDs rotate every scan, which churned the old composite key).
+    readonly property string apId: ssid
     readonly property int strength: lastIpcObject.strength
     readonly property int frequency: lastIpcObject.frequency
     readonly property bool active: lastIpcObject.active
@@ -33,4 +34,8 @@ QtObject {
 
     property bool askingPassword: false
     property bool expanded: false   // UI: details/actions panel open
+    // Reason the last connect attempt failed, as a code the UI translates:
+    // "bad-password" | "not-found" | "failed" | "" (none). Set by Network.connectProc
+    // on failure so the UI can show an explicit error instead of spinning forever.
+    property string connectError: ""
 }
