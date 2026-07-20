@@ -15,7 +15,23 @@ Singleton {
     // AC connected = NOT on battery. Robust at 100% (state is "fully charged", not
     // "charging") — UPower.onBattery is the canonical, reactive flag.
     property bool isPluggedIn: !UPower.onBattery
-    property real percentage: UPower.displayDevice?.percentage ?? 1
+    property bool onBattery: available && UPower.onBattery
+
+    // Glitch-filtered charge level. The Zenbook UX3405CA firmware emits transient
+    // 0% readings (energy_now momentarily 0) at charge-state transitions — e.g. the
+    // "pending-charge" flicker that once auto-suspended the machine at 93%. A device
+    // that is running cannot truly be at 0%, and real discharge is gradual, so we
+    // reject a bare 0 and any sudden single-sample drop, holding the last good value
+    // until the next plausible reading. See the battery-tracker spikes note.
+    property real rawPercentage: UPower.displayDevice?.percentage ?? 1
+    property real percentage: rawPercentage > 0 ? rawPercentage : 1  // overwritten (binding broken) on first good sample
+    property real _lastGoodPct: rawPercentage > 0 ? rawPercentage : 1
+    onRawPercentageChanged: {
+        if (rawPercentage <= 0 || (_lastGoodPct - rawPercentage) > 0.30) return; // glitch → keep last good
+        _lastGoodPct = rawPercentage;
+        percentage = rawPercentage;
+    }
+
     readonly property bool allowAutomaticSuspend: Config.options.battery.automaticSuspend
     readonly property bool soundEnabled: Config.options.sounds.battery
 
@@ -24,9 +40,13 @@ Singleton {
     property bool isSuspending: available && (percentage <= Config.options.battery.suspend / 100)
     property bool isFull: available && (percentage >= Config.options.battery.full / 100)
 
-    property bool isLowAndNotCharging: isLow && !isCharging
-    property bool isCriticalAndNotCharging: isCritical && !isCharging
-    property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && !isCharging
+    // Key off genuinely-on-battery (UPower.onBattery), NOT !isCharging: a plugged-in
+    // charger can sit in "pending-charge" where isCharging is false, which used to let
+    // a phantom-0 glitch fire auto-suspend while on AC. onBattery is false whenever the
+    // charger is connected, regardless of the momentary charge state.
+    property bool isLowAndNotCharging: isLow && onBattery
+    property bool isCriticalAndNotCharging: isCritical && onBattery
+    property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && onBattery
     property bool isFullAndCharging: isFull && isCharging
 
     property real energyRate: UPower.displayDevice.changeRate
@@ -71,10 +91,20 @@ Singleton {
         if (root.soundEnabled) Audio.playSystemSound("suspend-error");
     }
 
-    onIsSuspendingAndNotChargingChanged: {
-        if (root.available && isSuspendingAndNotCharging) {
-            Quickshell.execDetached(["bash", "-c", `systemctl suspend || loginctl suspend`]);
+    // Suspend is destructive, so require the condition to hold for a few seconds before
+    // acting — a lone bad sample that slips past the glitch filter can't put the machine
+    // to sleep. Any recovery (charge/plug/level rise) cancels the pending suspend.
+    Timer {
+        id: suspendConfirm
+        interval: 8000; repeat: false
+        onTriggered: {
+            if (root.available && root.isSuspendingAndNotCharging)
+                Quickshell.execDetached(["bash", "-c", `systemctl suspend || loginctl suspend`]);
         }
+    }
+    onIsSuspendingAndNotChargingChanged: {
+        if (root.available && isSuspendingAndNotCharging) suspendConfirm.restart();
+        else suspendConfirm.stop();
     }
 
     onIsFullAndChargingChanged: {
