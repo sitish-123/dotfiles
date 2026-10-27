@@ -25,13 +25,12 @@ system/               # system-level (/etc + systemctl) setup — needs sudo
   system-setup.sh     #   NetworkManager-only, gnome-keyring, face-unlock, timeshift (idempotent)
   etc/                #   /etc drop-ins: NM, howdy (face unlock), timeshift (backup template)
 pkgs/
-  hyprtasking/        # git submodule → github.com/sitish-kumar/hyprtasking (the fork)
-ARCH-INSTALL.md       # bare-metal Arch → this desktop (incl. PAM keyring step)
+  hyprtasking/        # git submodule → github.com/sitish-123/hyprtasking (the fork)
 ```
 
 **Two layers:** `config/` is user-level (`~/.config`, symlinked); `system/` is
 system-level (`/etc`, `systemctl` — the network/keyring tweaks). `install.sh` runs
-both; bare-metal Arch install itself is documented in `ARCH-INSTALL.md`.
+both.
 
 ## Install (new machine)
 
@@ -42,7 +41,7 @@ the heavy dependency stack (qt6, fonts, portal, pipewire, quickshell) comes from
 is just the Quickshell *runtime* it runs on — different things.)
 
 ```bash
-git clone --recurse-submodules https://github.com/sitish-kumar/dotfiles.git ~/Projects/dotfiles
+git clone --recurse-submodules https://github.com/sitish-123/dotfiles.git ~/Projects/dotfiles
 cd ~/Projects/dotfiles
 ./install.sh        # packages (official+AUR) → submodule → symlink configs → build fork → ydotool
 ```
