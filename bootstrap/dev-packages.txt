@@ -31,5 +31,5 @@ aur:android-studio
 
 # group: face-unlock | Howdy IR face unlock — HEAVY: pulls python-dlib -> CUDA + cuDNN (~6 GB)
 # Re-enroll per machine: `sudo howdy add`; set [video] device_path in
-# /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + ARCH-INSTALL.md.
+# /etc/howdy/config.ini to that laptop's IR/webcam. See system/ + README.md.
 aur:howdy-git

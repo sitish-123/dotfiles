@@ -11,7 +11,7 @@
 #   - gnome-keyring as secret storage; KWallet disabled.
 #   - wifi powersave drop-in.
 #
-# NOT handled here (too dangerous to script blindly — see ARCH-INSTALL.md):
+# NOT handled here (too dangerous to script blindly — see README.md, Bare-metal install):
 #   - Bare-metal Arch install (partitioning / base system).
 #   - PAM keyring auto-unlock (editing /etc/pam.d can lock you out of login).
 #     The script only CHECKS it and prints the lines to add if missing.

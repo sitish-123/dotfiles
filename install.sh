@@ -349,7 +349,7 @@ fi
 # 5) System-level tweaks (network/keyring/etc). Idempotent. Skipped with --no-system.
 if [ "$WANT_SYSTEM" -eq 1 ] && ask_yes "Apply system tweaks (network/keyring/bluetooth — needs sudo)?"; then
     info "Applying system tweaks (network/keyring) — re-run safe"
-    bash "$DOT_ROOT/system/system-setup.sh" || warn "system setup had issues (see ARCH-INSTALL.md)"
+    bash "$DOT_ROOT/system/system-setup.sh" || warn "system setup had issues (see README.md, Bare-metal install)"
 fi
 
 # --- Summary ----------------------------------------------------------------
@@ -358,5 +358,5 @@ if [ "${#FAILED_PKGS[@]}" -gt 0 ]; then
     warn "Retry or inspect the conflict with:  yay -S ${FAILED_PKGS[*]}"
 fi
 ok "Install complete. Log into Hyprland (or reload) to apply."
-info "PAM keyring auto-unlock is a manual step — see ARCH-INSTALL.md §3"
+info "PAM keyring auto-unlock is a manual step — see README.md, Bare-metal install §4"
 info "Reflect future edits to GitHub with:  $DOT_ROOT/sync.sh"
