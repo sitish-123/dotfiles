@@ -179,7 +179,7 @@ fi
 DM_PAM="/etc/pam.d/sddm"
 if [ -f "$DM_PAM" ] && ! grep -q pam_gnome_keyring "$DM_PAM"; then
     warn "gnome-keyring is NOT wired into $DM_PAM — it won't auto-unlock at login."
-    warn "Add these (see ARCH-INSTALL.md), then test login before rebooting:"
+    warn "Add these (see README.md, Bare-metal install §4), then test login before rebooting:"
     cat <<'EOF'
     auth       optional     pam_gnome_keyring.so
     password   optional     pam_gnome_keyring.so use_authtok      (after the password line)
