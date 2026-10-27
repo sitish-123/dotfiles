@@ -108,14 +108,40 @@ Credits below).
 **Gestures/keybinds**: 3-finger pinch disabled (Hyprland 0.55 pinch→swipe crash
 workaround); see `config/hypr/`.
 
+`profiles/sitish/` holds my own live Hyprland and kitty setup, separate from the rice that
+`install.sh` installs. `config/fish/` is my fish config.
+
 ## Credits & License
 
-The desktop config (`config/quickshell/ii`) is **derived from
-[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)** (*illogical-impulse*,
-GPL-3.0), with bits from [caelestia-dots/shell](https://github.com/caelestia-dots/shell)
-(GPL-3.0); the overview plugin is a fork of
-[raybbian/hyprtasking](https://github.com/raybbian/hyprtasking) (BSD-3-Clause). Full
-attribution is in **[CREDITS.md](CREDITS.md)**.
+This desktop stands on the work of others. Huge thanks to the projects below — please
+star/sponsor them.
 
-Released under **GPL-3.0** (see [LICENSE](LICENSE)) — required by the copyleft of the
-vendored work above.
+### Desktop config (`config/`)
+
+- **[end-4 / dots-hyprland](https://github.com/end-4/dots-hyprland)** — *illogical-impulse*, **GPL-3.0**.
+  The Quickshell desktop in `config/quickshell/ii` is **derived from and modified on top of**
+  illogical-impulse. Sponsor: <https://github.com/sponsors/end-4>
+- **[caelestia-dots/shell](https://github.com/caelestia-dots/shell)** — **GPL-3.0**.
+  Portions of `config/quickshell/ii/modules/common/Icons.qml` originate here.
+
+### Hyprland plugins
+
+- **[Raymond Bian (raybbian) / hyprtasking](https://github.com/raybbian/hyprtasking)** — **BSD-3-Clause**.
+  `pkgs/hyprtasking` is a fork; the original copyright (© 2024 Raymond Bian) is retained in
+  that submodule's `LICENSE`.
+
+### Tools & themes (installed as packages, not vendored)
+
+- [Quickshell](https://github.com/quickshell-mirror/quickshell) — the runtime that renders the config
+- [matugen](https://github.com/InioX/matugen) — Material You color generation
+- [kde-material-you-colors](https://github.com/luisbocanegra/kde-material-you-colors)
+- [Bibata Cursor](https://github.com/ful1e5/Bibata_Cursor)
+
+### This repository's own work
+
+The installer/maintenance scripts and system tweaks — `install.sh`, `update.sh`, `sync.sh`,
+`bootstrap/`, `system/`, and the `hyprtasking` fork's added features — are authored by the
+repository owner.
+
+Because this repository contains and modifies GPL-3.0 work, it is released under the
+**GPL-3.0** (see [LICENSE](LICENSE)).

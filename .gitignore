@@ -4,6 +4,10 @@ pkgs/hyprtasking/build/
 *.bak.*
 # logs / caches / state
 *.log
+config/fish/fish_variables
+# local docs stay out of git
+*.md
+!README.md
 __pycache__/
 config/**/generated/
 # non-portable absolute-path install manifest from the ii base
